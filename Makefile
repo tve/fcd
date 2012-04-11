@@ -10,4 +10,4 @@ libfcd.a:	libfcd.h libfcd.c hidapi.h hid-libusb.c hidmac.c hidwin.cpp Makefile
 	ar rcs libfcd.a libfcd.o hid-libusb.o
 
 fcd: libfcd.a fcd.c Makefile
-	gcc -o fcd fcd.c -I$(LIBUSB_INCLUDE_PATH) -I. -L. -lfcd -lusb-1.0
+	gcc -o fcd fcd.c -I$(LIBUSB_INCLUDE_PATH) -I. -L. -lfcd -lusb-1.0 -lpthread
