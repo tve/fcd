@@ -57,7 +57,7 @@ main(int argc, char **argv)
 
     for (;;) {
 
-	c = getopt_long(argc, argv, "d:lgs:k:",
+	c = getopt_long(argc, argv, "e:n:lgs:k:",
 			long_options, NULL);
 	if (c == -1)
 	    break;
@@ -90,7 +90,7 @@ main(int argc, char **argv)
 	    break;
 
 	default:
-	    printf("usage: fcd [-l] [-d devno] [-g] [-s freq_Hz] [-k freq_kHz]\n");
+	    printf("usage: fcd [-l] [-e enumno] [-n sernum] [-g] [-s freq_Hz] [-k freq_kHz]\n");
 	    exit(1);
 	}
     }
