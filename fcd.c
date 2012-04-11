@@ -72,7 +72,7 @@ main(int argc, char **argv)
 	    break;
 
 	case OPT_ENUMNUM:
-	    serialNum = atoi(optarg);
+	    enumNum = atoi(optarg);
 	    break;
 
 	case OPT_SET_FREQ:
