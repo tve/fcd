@@ -11,19 +11,72 @@ Issues:
           000c = device address of an FCD
             02 = control endpoint
 
+         ./fcd -l  # my fcd control utility
+    [A]
+        These FCDs found:
+        enum:  0; serial:      0; path: 0001:000f:02
+        enum:  1; serial:      0; path: 0001:000c:02
+        enum:  2; serial:      0; path: 0001:0010:02
+        enum:  3; serial:      0; path: 0001:000e:02
+
     Unfortunately, the device addresses are chronologically assigned, and don't
     consistently correspond to physical slots on the hub.
 
-    However (hurray!), we can perform this match as so:
+    However (hurray!), we can perform this match as so, assuming a 7-port hub:
 
-    for x in /sys/bus/usb/devices/1-1.[1-7]; do echo -n $x " "; cat $x/devnum; done
 
-    which prints a list like:
+        for x in /sys/bus/usb/devices/1-1.[1-7]; do echo -n $x " "; cat $x/devnum; done
+    [B]
+        /sys/bus/usb/devices/1-1.2  15
+        /sys/bus/usb/devices/1-1.5  12
+        /sys/bus/usb/devices/1-1.6  13
+        /sys/bus/usb/devices/1-1.7  14
 
-        /sys/bus/usb/devices/1-1.1  12
-        /sys/bus/usb/devices/1-1.3  13
-        /sys/bus/usb/devices/1-1.5  14
-        /sys/bus/usb/devices/1-1.7  15
+    so that, for example, the device in phyiscal slot 5 has been given libusb address 12.
+    If the hub has more than 7 ports, the expression [1-7] would need to be changed, to
+    e.g. [1-9].  With more than 9 ports, use two or more wildcard expressions:
 
-    so that, for example, the device in phyiscal slot 5 has been given libusb address 14.
+        for x in /sys/bus/usb/devices/1-1.[1-9] /sys/bus/usb/devices/1-1.1[0-9]; do echo -n $x " "; cat $x/devnum; done
+
+    We still need to associate the sound devices as seen by alsa with these physical 
+    devices.  The following will do this:
+
+        ls -lt /dev/snd/by-path/ | sort -k11
+    [C]   
+        lrwxrwxrwx 1 root root 12 Apr 12 15:43 platform-musb-hdrc.1-usb-0:1.2:1.0 -> ../controlC0
+        lrwxrwxrwx 1 root root 12 Apr 12 15:37 platform-musb-hdrc.1-usb-0:1.5:1.0 -> ../controlC1
+        lrwxrwxrwx 1 root root 12 Apr 12 16:03 platform-musb-hdrc.1-usb-0:1.6:1.0 -> ../controlC2
+        lrwxrwxrwx 1 root root 12 Apr 12 15:37 platform-musb-hdrc.1-usb-0:1.7:1.0 -> ../controlC3
+
+    This list is sorted by the last field (controlCX), and is in the same order as the funcube
+    enumeration in [A], as well as the alsa device enumeration obtained as so:
+
+        arecord -l
+    [D]
+        **** List of CAPTURE Hardware Devices ****
+        card 0: V10 [FUNcube Dongle V1.0], device 0: USB Audio [USB Audio]
+          Subdevices: 1/1
+          Subdevice #0: subdevice #0
+        card 1: V10_1 [FUNcube Dongle V1.0], device 0: USB Audio [USB Audio]
+          Subdevices: 1/1
+          Subdevice #0: subdevice #0
+        card 2: V10_2 [FUNcube Dongle V1.0], device 0: USB Audio [USB Audio]
+          Subdevices: 1/1
+          Subdevice #0: subdevice #0
+        card 3: V10_3 [FUNcube Dongle V1.0], device 0: USB Audio [USB Audio]
+          Subdevices: 1/1
+          Subdevice #0: subdevice #0
+
+    Combining all of this, we can get the physical hub slot for each FCD/Alsa device
+    as follows:
+
+        ls -1lt /dev/snd/by-path/ | grep -v '^total' | sort -k11 | gawk -vFS=: 'BEGIN{print "FCD/   Hub\nAlsa   slot"}{a=$3; b=gensub(/^.*controlC/, "", "g", $0); printf " %s      %s\n", b, gensub("^1.", "", "g", a)}'
     
+        FCD/   Hub
+        Alsa   slot
+         0      1
+         1      5
+         2      7
+         3      3
+
+
