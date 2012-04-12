@@ -79,4 +79,9 @@ Issues:
          2      7
          3      3
 
+The files funcube.rules and get_fcd_slot_list.sh serve to maintain an active list of hub slot numbers
+corresponding to the currently plugged-in fcds.  The slot #s in the file /var/lib/misc/fcd_slot_list
+correspond to physical USB ports on a hub, and are in the same order as the funcubes are currently
+enumerated by libusb, and hence alsa and libfcd.
+
 
