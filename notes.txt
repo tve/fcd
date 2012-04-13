@@ -113,3 +113,10 @@ becomes an issue, we could instead go back to not using that kind of adapter, an
 make sure that frames_between_timestamps is a multiple of the plugin's blocksize. This
 is a pain and can hopefully be avoided.
 
+So, here's how to start recording pulses on the beaglebone:
+
+./arecord -r 96000 -f S16_LE -c 2 -t raw --emit-timestamps 1  -D "default:CARD=V10" | ../../vamp-plugin-sdk-v2.2.1host/vamp-rt-host lotek-plugins.so:findpulsebatch /dev/stdin -o /tmp/fcdout.txt
+
+FIXME 13 April 2012:
+- pulse timestamps are wonky (why negative?)
+- fix padding in output? (now that we're not using autosprintf)
