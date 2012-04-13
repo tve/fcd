@@ -684,7 +684,7 @@ static param_value param_defaults[] = {
 
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd)
 {
-  param_value *defs = & param_defaults;
+  param_value *defs = & param_defaults[0];
   while (defs->parm != 0) {
     if (FCD_RETCODE_OKAY != fcdAppSetParam(fcd, defs->parm, &defs->value, 1))
       return FCD_RETCODE_ERROR;
