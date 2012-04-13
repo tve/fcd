@@ -34,7 +34,7 @@ VAMP_SDK_LIB_DIR = /usr/local/lib
 CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -O2
 PLUGIN_EXT = .so
 PLUGIN = $(PLUGIN_LIBRARY_NAME)$(PLUGIN_EXT)
-LDFLAGS = -shared -Wl,-soname=$(PLUGIN) $(VAMP_SDK_LIB_DIR)/libvamp-sdk.a -Wl,--version-script=vamp-plugin.map -lasprintf
+LDFLAGS = -shared -Wl,-soname=$(PLUGIN) $(VAMP_SDK_LIB_DIR)/libvamp-sdk.a -Wl,--version-script=vamp-plugin.map
 
 
 $(PLUGIN): $(PLUGIN_CODE_OBJECTS) lotek-plugins.o
