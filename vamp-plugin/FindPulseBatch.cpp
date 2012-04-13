@@ -49,11 +49,8 @@ using std::vector;
 using std::cerr;
 using std::endl;
 
-#include <autosprintf.h>
 #include <cmath>
 #include <sstream>
-
-using gnu::autosprintf;
 
 FindPulseBatch::FindPulseBatch(float inputSampleRate) :
     Plugin(inputSampleRate),

@@ -45,11 +45,8 @@ using std::vector;
 using std::cerr;
 using std::endl;
 
-#include <autosprintf.h>
 #include <cmath>
 #include <sstream>
-
-using gnu::autosprintf;
 
 FindPulse::FindPulse(float inputSampleRate) :
     Plugin(inputSampleRate),
@@ -301,17 +298,22 @@ FindPulse::process(const float *const *inputBuffers,
                         feature.timestamp = timestamp +
                             Vamp::RealTime::frame2RealTime((signed int) i - m_duration, (size_t)m_inputSampleRate);
                         std::stringstream ss;
-                        ss << gnu::autosprintf("dFreq: %.1f kHz; SNR: %.1f dB; Dur: %.1f ms; RSD: %.2f",
-                                               arg(m_pulse_phasor_ma.get_buffer_average()) / (2 * M_PI) * m_inputSampleRate / 1000,
-                                               10 * log10f(m_total_power / (m_bkgd_power_ma.get_average() * m_duration)),
-                                               duration_msec,
-                                               rsd );
+                        ss.precision(1);
+                        ss << "dFreq: " <<
+                            arg(m_pulse_phasor_ma.get_buffer_average()) / (2 * M_PI) * m_inputSampleRate / 1000 << " kHz; SNR: " <<
+                            10 * log10f(m_total_power / (m_bkgd_power_ma.get_average() * m_duration)) << " dB; Dur: " <<
+                            duration_msec << " ms; RSD: ";
+                        ss.precision(2);
+                        ss << rsd;
                         if (m_last_timestamp.sec > 0) {
                             Vamp::RealTime gap =  feature.timestamp - m_last_timestamp;
-                            if (gap.sec < 1)
-                                ss << gnu::autosprintf("; Gap: %d ms", gap.msec());
-                            else
-                                ss << gnu::autosprintf("; Gap: %.1f s", gap.sec + (double) gap.msec()/1000);
+                            if (gap.sec < 1) {
+                                ss.precision(0);
+                                ss << "; Gap: " << gap.msec() << " ms";
+                            } else {
+                                ss.precision(1);
+                                ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " ms";
+                            }
                         }
                         m_last_timestamp = feature.timestamp;
                         feature.label = ss.str();
