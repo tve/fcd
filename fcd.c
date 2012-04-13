@@ -44,7 +44,8 @@ main(int argc, char **argv)
     int enumNum = 0;
     uint32_t freq;
     fcdDesc fcd;
-
+    int devOpen = 0;
+    
     static struct option long_options[] = {
 	{"serialnum",  1, 0, OPT_SERNUM},
 	{"enumnum",    1, 0, OPT_ENUMNUM},
@@ -114,10 +115,12 @@ main(int argc, char **argv)
       default:
 	break;
       }
-      if (FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum)) {
+      if (!devOpen && FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum)) {
 	puts("Error: unable to open specified FCD.");
 	exit(1);
       }
+      devOpen = 1;
+
       switch(command) {
       case OPT_GET_FREQ:
 	if (FCD_RETCODE_OKAY != fcdAppGetFreq(&fcd, &freq)) {
