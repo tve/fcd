@@ -26,8 +26,8 @@ PLUGIN_CODE_OBJECTS = FindPulse.o FindPulseBatch.o
 # Edit this to the location of the Vamp plugin SDK, relative to your
 # project directory
 #
-VAMP_SDK_INCLUDE_DIR = /usr/include/vamp-sdk
-VAMP_SDK_LIB_DIR = /usr/lib
+VAMP_SDK_INCLUDE_DIR = /usr/local/include/
+VAMP_SDK_LIB_DIR = /usr/local/lib
 
 ##  Uncomment these for Linux using the standard tools:
 
