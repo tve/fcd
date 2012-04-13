@@ -33,7 +33,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-typedef enum {OPT_NONE, OPT_SERNUM='n', OPT_ENUMNUM='e', OPT_LIST='l', OPT_GET_FREQ='g', OPT_SET_FREQ='s', OPT_SET_FREQ_KHZ='k'} cmds_t;
+typedef enum {OPT_NONE, OPT_SERNUM='n', OPT_ENUMNUM='e', OPT_LIST='l', OPT_SET_DEFAULTS='d', OPT_GET_FREQ='g', OPT_SET_FREQ='s', OPT_SET_FREQ_KHZ='k'} cmds_t;
 
 int
 main(int argc, char **argv)
@@ -49,6 +49,7 @@ main(int argc, char **argv)
 	{"serialnum",  1, 0, OPT_SERNUM},
 	{"enumnum",    1, 0, OPT_ENUMNUM},
 	{"list",       0, 0, OPT_LIST},
+	{"defaults",   0, 0, OPT_SET_DEFAULTS},
 	{"getfreq",    0, 0, OPT_GET_FREQ},
 	{"setfreq",    1, 0, OPT_SET_FREQ},
 	{"setfreqkHz", 1, 0, OPT_SET_FREQ_KHZ},
@@ -57,87 +58,98 @@ main(int argc, char **argv)
 
     for (;;) {
 
-	c = getopt_long(argc, argv, "e:n:lgs:k:",
-			long_options, NULL);
-	if (c == -1)
-	    break;
+      c = getopt_long(argc, argv, "e:n:ldgs:k:",
+		      long_options, NULL);
+      if (c == -1)
+	break;
 
-	switch (c) {
-	case OPT_LIST:
-	    command = OPT_LIST;
-	    break;
+      switch (c) {
+      case OPT_LIST:
+	command = OPT_LIST;
+	break;
 
-	case OPT_SERNUM:
-	    serialNum = atoi(optarg);
-	    break;
+      case OPT_SET_DEFAULTS:
+	command = OPT_SET_DEFAULTS;
+	break;
 
-	case OPT_ENUMNUM:
-	    enumNum = atoi(optarg);
-	    break;
+      case OPT_SERNUM:
+	serialNum = atoi(optarg);
+	break;
 
-	case OPT_SET_FREQ:
-	    freq = atoi(optarg);
-	    command = OPT_SET_FREQ;
-	    break;
+      case OPT_ENUMNUM:
+	enumNum = atoi(optarg);
+	break;
 
-	case OPT_SET_FREQ_KHZ:
-	    freq = atoi(optarg);
-	    command = OPT_SET_FREQ_KHZ;
-	    break;
+      case OPT_SET_FREQ:
+	freq = atoi(optarg);
+	command = OPT_SET_FREQ;
+	break;
 
-	case OPT_GET_FREQ:
-	    command = OPT_GET_FREQ;
-	    break;
+      case OPT_SET_FREQ_KHZ:
+	freq = atoi(optarg);
+	command = OPT_SET_FREQ_KHZ;
+	break;
 
-	default:
-	    printf("usage: fcd [-l] [-e enumno] [-n sernum] [-g] [-s freq_Hz] [-k freq_kHz]\n");
-	    exit(1);
-	}
-    }
+      case OPT_GET_FREQ:
+	command = OPT_GET_FREQ;
+	break;
 
-    switch(command) {
-    case OPT_LIST:
+      default:
+	printf("usage: fcd [-l] [-e enumno] [-n sernum] [-g] [-s freq_Hz] [-k freq_kHz] [-d]\n");
+	exit(1);
+      }
+
+      switch(command) {
+      case OPT_LIST:
 	puts("These FCDs found:");
 	for (enumNum=0, serialNum=0;; ++enumNum) {
-	    if (FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum)) {
-		break;
-	    }
-	    printf("enum: %2d; serial: %6d; path: %s\n", fcd.enumNum, fcd.serialNum, fcd.pszPath);
-	    fcdClose(&fcd);
+	  if (FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum)) {
+	    break;
+	  }
+	  printf("enum: %2d; serial: %6d; path: %s\n", fcd.enumNum, fcd.serialNum, fcd.pszPath);
+	  fcdClose(&fcd);
 	}	    
 	exit(0);
 	break;
-    default:
+      default:
 	break;
-    }
-    if (FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum)) {
+      }
+      if (FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum)) {
 	puts("Error: unable to open specified FCD.");
 	exit(1);
-    }
-    switch(command) {
-    case OPT_GET_FREQ:
+      }
+      switch(command) {
+      case OPT_GET_FREQ:
 	if (FCD_RETCODE_OKAY != fcdAppGetFreq(&fcd, &freq)) {
-	    puts("Error: unable to get frequency for specified FCD.");
-	    exit(1);
+	  puts("Error: unable to get frequency for specified FCD.");
+	  exit(1);
 	}
 	printf("%d Hz\n", freq);
 	break;
-    case OPT_SET_FREQ:
+      case OPT_SET_FREQ:
 	if (FCD_RETCODE_OKAY != fcdAppSetFreq(&fcd, freq)) {
-	    puts("Error: unable to set frequency for specified FCD.");
-	    exit(1);
+	  puts("Error: unable to set frequency for specified FCD.");
+	  exit(1);
 	}
 	printf("%d Hz\n", freq);
 	break;
-    case OPT_SET_FREQ_KHZ:
+      case OPT_SET_FREQ_KHZ:
 	if (FCD_RETCODE_OKAY != fcdAppSetFreqkHz(&fcd, freq)) {
-	    puts("Error: unable to set frequency in kHz for specified FCD.");
-	    exit(1);
+	  puts("Error: unable to set frequency in kHz for specified FCD.");
+	  exit(1);
 	}
 	printf("%d kHz\n", freq);
 	break;
-    default:
+      case OPT_SET_DEFAULTS:
+	if (FCD_RETCODE_OKAY != fcdAppSetParamDefaults(&fcd)) {
+	  puts("Error: unable to set default filter and gain parameters for specified FCD.");
+	  exit(1);
+	}
+	puts("Default gain and filtering parameters set.");
 	break;
+      default:
+	break;
+      }
     }
     exit(EXIT_SUCCESS);
 }
