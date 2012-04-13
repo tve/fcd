@@ -649,3 +649,46 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd,
     return FCD_RETCODE_ERROR;
 }
 
+/** \brief Set default gain and filter parameters
+  * \param fcd Pointer to an FCD device descriptor 
+  */
+
+typedef struct {
+
+  uint8_t parm;
+  uint8_t value;
+
+} param_value;
+
+static param_value param_defaults[] = {
+
+  FCD_CMD_APP_SET_LNA_GAIN    , TLGE_P20_0DB, 
+  FCD_CMD_APP_SET_LNA_ENHANCE , TLEE_OFF,
+  FCD_CMD_APP_SET_BAND        , TBE_VHF2,
+  FCD_CMD_APP_SET_RF_FILTER   , TRFE_LPF268MHZ,
+  FCD_CMD_APP_SET_MIXER_GAIN  , TMGE_P12_0DB,
+  FCD_CMD_APP_SET_BIAS_CURRENT, TBCE_VUBAND,
+  FCD_CMD_APP_SET_MIXER_FILTER, TMFE_1_9MHZ,
+  FCD_CMD_APP_SET_IF_GAIN1    , TIG1E_P6_0DB,
+  FCD_CMD_APP_SET_IF_GAIN_MODE, TIGME_LINEARITY,
+  FCD_CMD_APP_SET_IF_RC_FILTER, TIRFE_1_0MHZ,
+  FCD_CMD_APP_SET_IF_GAIN2    , TIG2E_P0_0DB,
+  FCD_CMD_APP_SET_IF_GAIN3    , TIG3E_P0_0DB,
+  FCD_CMD_APP_SET_IF_FILTER   , TIFE_2_15MHZ,
+  FCD_CMD_APP_SET_IF_GAIN4    , TIG4E_P0_0DB,
+  FCD_CMD_APP_SET_IF_GAIN5    , TIG5E_P3_0DB,
+  FCD_CMD_APP_SET_IF_GAIN6    , TIG6E_P3_0DB,
+  0                           , 0
+
+} ;
+
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd)
+{
+  param_value *defs = & param_defaults;
+  while (defs->parm != 0) {
+    if (FCD_RETCODE_OKAY != fcdAppSetParam(fcd, defs->parm, &defs->value, 1))
+      return FCD_RETCODE_ERROR;
+    ++defs;
+  }
+  return FCD_RETCODE_OKAY;
+}
