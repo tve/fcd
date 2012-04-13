@@ -1,6 +1,9 @@
-Funcube
+Using the funcube dongle attached to a beaglebone computer for recording
+hits from Lotek telemetry tags.
 
 Issues:
+
+1. DEVICE IDENTITY
 
 - identify which sound device corresponds to which hid device
 - on beaglebone Angstrom linux, with funcubes attached to a USB hub,
@@ -23,7 +26,6 @@ Issues:
     consistently correspond to physical slots on the hub.
 
     However (hurray!), we can perform this match as so, assuming a 7-port hub:
-
 
         for x in /sys/bus/usb/devices/1-1.[1-7]; do echo -n $x " "; cat $x/devnum; done
     [B]
@@ -85,3 +87,15 @@ correspond to physical USB ports on a hub, and are in the same order as the func
 enumerated by libusb, and hence alsa and libfcd.
 
 
+2. TIMESTAMPS IN ARECORD
+
+We've modified the aplay/arecord program from alsa-utils-1.0.25 so that it can emit
+high precision timestamps into a raw output stream.  This is done by a command line option
+--emit-timestamps=N, where N is the number of chunks (internally defined) between timestamps.
+The raw output stream will begin with a U32_LE integer giving the chunk size in frames (e.g. 
+stereo with 16 bits per sample is a frame size of 4).  Then comes a high precision timestamp
+# seconds, # nanoseconds, both unsigned little-endian integers, either 32-bit or 64-bit,
+depending on the platform.
+
+Note: on the beaglebone, these timestamps are local time.  On my PC, they appear to be
+relative to boot time.  Not sure why, but the beaglebone case is ideal.
