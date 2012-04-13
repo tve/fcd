@@ -87,7 +87,7 @@ correspond to physical USB ports on a hub, and are in the same order as the func
 enumerated by libusb, and hence alsa and libfcd.
 
 
-2. TIMESTAMPS IN ARECORD
+2. TIMESTAMPS IN ARECORD OUTPUT
 
 We've modified the aplay/arecord program from alsa-utils-1.0.25 so that it can emit
 high precision timestamps into a raw output stream.  This is done by a command line option
@@ -99,3 +99,17 @@ depending on the platform.
 
 Note: on the beaglebone, these timestamps are local time.  On my PC, they appear to be
 relative to boot time.  Not sure why, but the beaglebone case is ideal.
+
+
+3. VAMP REALTIME HOST 
+
+We've modifed the vamp-simple-host application that comes with the VAMP SDK so that it
+understands the timestamps embedded in raw streams output by the modified arecord (see 
+previous section).  For simplicity, we've used a PluginBufferingAdapter, so that we can
+just read the input stream one block at a time, where each block begins with a timestamp,
+without worrying about the blocksize requested by the underlying plugin. This will result
+in an extra round of copying via a ring buffer, but keeps the code simple.  If performance
+becomes an issue, we could instead go back to not using that kind of adapter, and just
+make sure that frames_between_timestamps is a multiple of the plugin's blocksize. This
+is a pain and can hopefully be avoided.
+
