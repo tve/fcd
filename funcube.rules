@@ -1,3 +1,4 @@
 # actions to update the fcd slot list file (/var/lib/misc/fcd_slot_list) upon fcd insertion or removal
-ACTION=="add",SUBSYSTEMS=="usb",ATTRS{idVendor}=="04d8",ATTRS{idProduct}=="fb56",MODE:="0666",SYMLINK+="FCD_%n_%p_%b",RUN:="/home/bone/bin/get_fcd_slot_list.sh"
-ACTION=="remove",SUBSYSTEMS=="usb",RUN:="/home/bone/bin/get_fcd_slot_list.sh"
+ACTION=="add",SUBSYSTEMS=="usb",ATTRS{idVendor}=="04d8",ATTRS{idProduct}=="fb56",MODE:="0666"
+ACTION=="add",SUBSYSTEMS=="usb",ATTRS{idVendor}=="04d8",ATTRS{idProduct}=="fb56",KERNEL=="control*",RUN:="/home/bone/bin/fcd_slot_list.sh"
+ACTION=="remove",SUBSYSTEMS=="usb",RUN:="/home/bone/bin/fcd_slot_list.sh"
