@@ -1,0 +1,53 @@
+## NB: on linux, do a make clean whenever there are significant changes to the class structure
+## of any plugin.
+##
+##  Skeleton Makefile for Vamp plugin builds using command-line tools.
+##
+##  Rename this to Makefile, and edit as appropriate.
+##  This Makefile WILL NOT WORK until you have edited it as described
+##  below -- the Makefile as supplied does nothing useful at all!
+##
+##  Various sets of options are provided, commented out -- just uncomment
+##  (remove the '#' characters for) the set that most closely resembles
+##  your own situation, and adjust to taste.  Then run "make".
+##
+##  (For Windows builds using MS Visual Studio, start instead with the
+##  VampExamplePlugins project found in the build directory of the SDK.)
+
+
+# Edit this to the base name of your plugin library
+#
+PLUGIN_LIBRARY_NAME = lotek-plugins
+
+# Edit this to list one .o file for each .cpp file in your plugin project
+#
+PLUGIN_CODE_OBJECTS = FindPulse.o FindPulseBatch.o
+
+# Edit this to the location of the Vamp plugin SDK, relative to your
+# project directory
+#
+VAMP_SDK_INCLUDE_DIR = /usr/include/vamp-sdk
+VAMP_SDK_LIB_DIR = /usr/lib
+
+##  Uncomment these for Linux using the standard tools:
+
+CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -O2
+PLUGIN_EXT = .so
+PLUGIN = $(PLUGIN_LIBRARY_NAME)$(PLUGIN_EXT)
+LDFLAGS = -shared -Wl,-soname=$(PLUGIN) $(VAMP_SDK_LIB_DIR)/libvamp-sdk.a -Wl,--version-script=vamp-plugin.map -lasprintf
+
+
+$(PLUGIN): $(PLUGIN_CODE_OBJECTS) lotek-plugins.o
+	   $(CXX) -o $@ $^ $(LDFLAGS)
+
+lotek-plugins.o: $(PLUGIN_CODE_OBJECTS) lotek-plugins.cpp
+
+
+FindPulse.o: MovingAverager.h
+
+FindPulseBatch.o: MovingAverager.h
+
+
+clean:
+	rm -f *.o
+
