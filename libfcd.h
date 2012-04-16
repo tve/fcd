@@ -81,6 +81,10 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetFreq(fcdDesc *fcd, 
 
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamNameToID(fcdDesc *fcd, char *name, uint8_t *pu8Cmd);
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamIDToName(fcdDesc *fcd, uint8_t u8Cmd, char *name);
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamValNameToVal(fcdDesc *fcd, uint8_t u8Cmd, char *name, uint8_t *pu8Data);
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamValToValName(fcdDesc *fcd, uint8_t u8Cmd, uint8_t u8Data, char *name);
 
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd);
 
@@ -216,7 +220,7 @@ typedef enum
   TRFE_BPF840MHZ=13,
   TRFE_BPF890MHZ=14,
   TRFE_BPF970MHZ=15,
-  // Band 2, L band
+  // Band 3, L band
   TRFE_BPF1300MHZ=0,
   TRFE_BPF1320MHZ=1,
   TRFE_BPF1360MHZ=2,
