@@ -51,6 +51,16 @@ typedef struct {
     char *pszPath;             /*!< system-dependent path to device */
 } fcdDesc;
 
+/** \brief FCD param value descriptor */
+typedef struct FCDParamInfo_
+{
+  char *name;  /*!< name of parameter or parameter value */
+  char isParamName; /*!< 'y' if name of parameter; 'n' if name of parameter value */
+  uint8_t getID; /*!< ID of getter function for this parameter */
+  uint8_t setID; /*!< ID of setter function for this parameter */
+  uint8_t paramValue; /*!< value for this parameter value; 0 if this is only a parameter name */
+} FCDParamInfo;
+
 /** \brief FCD mode enumeration. */
 typedef enum {
     FCD_MODE_BL,    /*!< FCD present in bootloader mode. */
@@ -81,10 +91,10 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetFreq(fcdDesc *fcd, 
 
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamNameToID(fcdDesc *fcd, char *name, uint8_t *pu8Cmd);
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamIDToName(fcdDesc *fcd, uint8_t u8Cmd, char *name);
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamValNameToVal(fcdDesc *fcd, uint8_t u8Cmd, char *name, uint8_t *pu8Data);
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamValToValName(fcdDesc *fcd, uint8_t u8Cmd, uint8_t u8Data, char *name);
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamByName(fcdDesc *fcd, char *valName);
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamByName(fcdDesc *fcd, char *paramName, char **outValName);
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamNames(char *(*outParamNames[]));
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamValNames(char *paramName, char *(*outValNames[]));
 
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd);
 

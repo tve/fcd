@@ -649,283 +649,44 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd,
     return FCD_RETCODE_ERROR;
 }
 
-/** \brief Set default gain and filter parameters
-  * \param fcd Pointer to an FCD device descriptor 
-  */
 
-typedef struct {
-  char *name;
-  uint8_t value;
-} paramValue;
-
-typedef struct {
-
-  char *name;
-  uint8_t ID;
-  uint8_t defaultValue;
-  int numValues;
-  paramValue *values;
-
-} paramInfo;
-
-static paramInfo paramTable[] = {
-
-  "lna_gain"    ,FCD_CMD_APP_SET_LNA_GAIN    , TLGE_P20_0DB   , 
-  13, {
-    "N5_0",   0,
-    "N2_5",   1,
-    "P0_0",   4,
-    "P2_5",   5,
-    "P5_0",   6,
-    "P7_5",   7,
-    "P10_0",  8,
-    "P12_5",  9,
-    "P15_0", 10,
-    "P17_5", 11,
-    "P20_0", 12,
-    "P25_0", 13,
-    "P30_0", 14
-  },
-
-  "lna_enhance" ,FCD_CMD_APP_SET_LNA_ENHANCE , TLEE_OFF	      ,
-  5, {
-    "OFF", 0,
-    "0",   1,
-    "1",   3,
-    "2",   5,
-    "3",   7
-  },
-
-  "band"        ,FCD_CMD_APP_SET_BAND        , TBE_VHF2	      ,
-  4, {
-    "vh2",   0,
-    "vhf3",  1,
-    "uhf",   2,
-    "lband", 3
-  },
-
-  "rf_filter"   ,FCD_CMD_APP_SET_RF_FILTER   , TRFE_LPF268MHZ ,
-  36, {
-  // Band 0, VHF II
-    "LPF268MHZ", 0,
-    "LPF299MHZ", 8,
-  // Band 1, VHF III
-    "LPF509MHZ", 0,
-    "LPF656MHZ", 8,
-  // Band 2, UHF
-    "BPF360MHZ", 0,
-    "BPF380MHZ", 1,
-    "BPF405MHZ", 2,
-    "BPF425MHZ", 3,
-    "BPF450MHZ", 4,
-    "BPF475MHZ", 5,
-    "BPF505MHZ", 6,
-    "BPF540MHZ", 7,
-    "BPF575MHZ", 8,
-    "BPF615MHZ", 9,
-    "BPF670MHZ", 10,
-    "BPF720MHZ", 11,
-    "BPF760MHZ", 12,
-    "BPF840MHZ", 13,
-    "BPF890MHZ", 14,
-    "BPF970MHZ", 15,
-  // Band 3, L band
-    "BPF1300MHZ", 0,
-    "BPF1320MHZ", 1,
-    "BPF1360MHZ", 2,
-    "BPF1410MHZ", 3,
-    "BPF1445MHZ", 4,
-    "BPF1460MHZ", 5,
-    "BPF1490MHZ", 6,
-    "BPF1530MHZ", 7,
-    "BPF1560MHZ", 8,
-    "BPF1590MHZ", 9,
-    "BPF1640MHZ", 10,
-    "BPF1660MHZ", 11,
-    "BPF1680MHZ", 12,
-    "BPF1700MHZ", 13,
-    "BPF1720MHZ", 14,
-    "BPF1750MHZ", 15
-  },
-
-  "mixer_gain"  ,FCD_CMD_APP_SET_MIXER_GAIN  , TMGE_P12_0DB   ,
-  2, {
-    "P4_0", 0,
-    "P12_0", 1
-  },
-
-  "bias_current",FCD_CMD_APP_SET_BIAS_CURRENT, TBCE_VUBAND    ,
-  4, {
-    "LBAND", 0,
-    "1", 1,
-    "2", 2,
-    "VUBAND", 3
-  },
-
-  "mixer_filter",FCD_CMD_APP_SET_MIXER_FILTER, TMFE_1_9MHZ    ,
-  9, {
-    "27_0", 0,
-    "4_6",  8,
-    "4_2",  9,
-    "3_8", 10,
-    "3_4", 11,
-    "3_0", 12,
-    "2_7", 13,
-    "2_3", 14,
-    "1_9", 15
-  },
-
-  "if_gain1"    ,FCD_CMD_APP_SET_IF_GAIN1    , TIG1E_P6_0DB   ,
-  2, {
-    "N3_0", 0,
-    "P6_0", 1
-  },
-  
-  "if_gain_mode",FCD_CMD_APP_SET_IF_GAIN_MODE, TIGME_LINEARITY,
-  2, {
-    "linearity", 0,
-    "sensitivity", 1
-  },
-
-  "if_rc_filter",FCD_CMD_APP_SET_IF_RC_FILTER, TIRFE_1_0MHZ   ,
-  16, {
-    "21_4", =0,
-    "21_0", =1,
-    "17_6", =2,
-    "14_7", =3,
-    "12_4", =4,
-    "10_6", =5,
-    "9_0", 6,
-    "7_7", 7,
-    "6_4", 8,
-    "5_3", 9,
-    "4_4", 10,
-    "3_4", 11,
-    "2_6", 12,
-    "1_8", 13,
-    "1_2", 14,
-    "1_0", 15
-  },
-  "if_gain2"    ,FCD_CMD_APP_SET_IF_GAIN2    , TIG2E_P0_0DB   ,
-  4, {
-    "P0_0", 0
-    "P3_0", 1,
-    "P6_0", 2,
-    "P9_0", 3
-  },
-  "if_gain3"    ,FCD_CMD_APP_SET_IF_GAIN3    , TIG3E_P0_0DB   ,
-  4, {
-    "P0_0", 0
-    "P3_0", 1,
-    "P6_0", 2,
-    "P9_0", 3
-  },
-  
-  "if_filter"   ,FCD_CMD_APP_SET_IF_FILTER   , TIFE_2_15MHZ   ,
-  32, {
-  "5_50", 0,
-  "5_30", 1,
-  "5_00", 2,
-  "4_80", 3,
-  "4_60", 4,
-  "4_40", 5,
-  "4_30", 6,
-  "4_10", 7,
-  "3_90", 8,
-  "3_80", 9,
-  "3_70", 10,
-  "3_60", 11,
-  "3_40", 12,
-  "3_30", 13,
-  "3_20", 14,
-  "3_10", 15,
-  "3_00", 16,
-  "2_95", 17,
-  "2_90", 18,
-  "2_80", 19,
-  "2_75", 20,
-  "2_70", 21,
-  "2_60", 22,
-  "2_55", 23,
-  "2_50", 24,
-  "2_45", 25,
-  "2_40", 26,
-  "2_30", 27,
-  "2_28", 28,
-  "2_24", 29,
-  "2_20", 30,
-  "2_15", 31
-  },
-
-"if_gain4"    ,FCD_CMD_APP_SET_IF_GAIN4    , TIG4E_P0_0DB   ,
-  4, {
-    "P0_0", 0
-    "P1_0", 1,
-    "P2_0", 2
-  },
-  "if_gain5"    ,FCD_CMD_APP_SET_IF_GAIN5    , TIG5E_P3_0DB   ,
-  5, {
-  "P3_0", 0,
-  "P6_0", 1,
-  "P9_0", 2,
-  "P12_0", 3,
-  "P15_0", 4
-  } 
-
-  "if_gain6"    ,FCD_CMD_APP_SET_IF_GAIN6    , TIG6E_P3_0DB   ,
-  5, {
-  "P3_0", 0,
-  "P6_0", 1,
-  "P9_0", 2,
-  "P12_0", 3,
-  "P15_0", 4
-  } 
-  0             ,0                           , 0              ,
-  0, {
-    0, 0
-  }
-}
-
-} ;
+static char *defaultParams[] = { // these are the defaults in qthid3.0
+  "GE_P20_0DB",		// LNA_GAIN
+  "LE_OFF",		// LNA_ENHANCE
+  "B_VHF2",		// BAND
+  "RF_LPF268MHZ",	// RF_FILTER
+  "MG_P12_0DB",		// MIXER_GAIN
+  "BC_VUBAND",		// BIAS_CURRENT
+  "MF_1_9_MHZ",		// MIXER_FILTER
+  "IG1_P6_0DB",		// IF_GAIN1
+  "IGM_LINEARITY",	// IF_GAIN_MODE_LINEARITY
+  "IRF_1_0_MHZ",	// IF_RC_FILTER
+  "IG2_P0_0DB",		// IF_GAIN2
+  "IG3_P0_0DB",		// IF_GAIN3
+  "IF_2_15MHZ",		// IF_FILTER
+  "IG4_P0_0DB",		// IF_GAIN4
+  "IG5_P3_0DB",		// IF_GAIN5
+  "IG6_P3_0DB",		// IF_GAIN6
+  0
+};
 
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd)
 {
-  paramInfo *par = & paramTable[0];
-  while (par->name != 0) {
-    if (FCD_RETCODE_OKAY != fcdAppSetParam(fcd, par->ID, &par->defaultValue, 1))
+  int i;
+  for (i = 0; defaultParams[i]; ++i)
+    if (FCD_RETCODE_OKAY != fcdAppSetParamByName(fcd, paramName[i]))
       return FCD_RETCODE_ERROR;
-    ++par;
-  }
   return FCD_RETCODE_OKAY;
 }
 
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamNameToID(char *name, uint8_t *pu8Cmd)
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamByName(fcdDesc *fcd, char *valName)
 {
-  paramInfo *par = & paramTable[0];
-  int len = strlen(name);
-  while (par->name != 0) {
-    if (0 == strncasecmp(name, par->name, len)) {
-      *pu8Cmd = par->ID;
-      return FCD_RETCODE_OKAY;
-    }
-    ++par;
-  };
-  return FCD_RETCODE_ERROR;
-}
+  if (!valName) 
+    return FCD_RETCODE_ERROR;
+  FCDParamInfo *info = lookupParamName(valName, strlen(valName));
+  if (!info)
+    return FCD_RETCODE_ERROR;
   
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamIDToName(fcdDesc *fcd, uint8_t u8Cmd, char *name)
-{
-  paramInfo *par = & paramTable[0];
-  int len = strlen(name);
-  while (par->name != 0) {
-    if (0 == strncasecmp(name, par->name, len)) {
-      *pu8Cmd = par->ID;
-      return FCD_RETCODE_OKAY;
-    }
-    ++par;
-  };
-  return FCD_RETCODE_ERROR;
+  return fcdAppSetParam(fcd, info->setID, &info->paramValue, sizeof(uint8_t));
 }
 
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamValNameToVal(fcdDesc *fcd, uint8_t u8Cmd, char *name, uint8_t *pu8Data);
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppParamValToValName(fcdDesc *fcd, uint8_t u8Cmd, uint8_t u8Data, char *name);

@@ -3,6 +3,8 @@ LIBUSB_INCLUDE_PATH=/usr/include/libusb-1.0
 
 all:	libfcd.a fcd
 
+fcd_param_names.c: fcd_param_names.gperf
+	gperf $< > $@
 
 libfcd.a:	libfcd.h libfcd.c hidapi.h hid-libusb.c hidmac.c hidwin.cpp Makefile
 	gcc -c  -I$(LIBUSB_INCLUDE_PATH) -o libfcd.o libfcd.c  -lusb-1.0
