@@ -51,15 +51,6 @@ typedef struct {
     char *pszPath;             /*!< system-dependent path to device */
 } fcdDesc;
 
-/** \brief FCD param value descriptor */
-typedef struct FCDParamInfo_
-{
-  int name;  /*!< name of parameter or parameter value, as index into global paramNamePool */
-  uint8_t isParamName; /*!< 1 if name of parameter; 0 if name of parameter value */
-  uint8_t getID; /*!< ID of getter function for this parameter */
-  uint8_t paramValue; /*!< value for this parameter value; 0 if this is only a parameter name */
-} FCDParamInfo;
-
 /** \brief FCD mode enumeration. */
 typedef enum {
     FCD_MODE_BL,    /*!< FCD present in bootloader mode. */
@@ -90,10 +81,6 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetFreq(fcdDesc *fcd, 
 
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamByName(fcdDesc *fcd, char *valName);
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamByName(fcdDesc *fcd, char *paramName, char **outValName);
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamNames(const char *(* outParamNames[]));
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamValNames(char *paramName, char *(*outValNames[]));
 
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd);
 
@@ -102,9 +89,6 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlReset(fcdDesc *fcd);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
-
-/* Parameter utility functions */
-EXTERN FCD_API_EXPORT FCD_API_CALL const struct FCDParamInfo_ *lookupParamName (register const char *str, register unsigned int len);
 
 #ifdef __cplusplus
 }
@@ -150,9 +134,6 @@ EXTERN FCD_API_EXPORT FCD_API_CALL const struct FCDParamInfo_ *lookupParamName (
 #define FCD_CMD_APP_SET_IF_GAIN4     123
 #define FCD_CMD_APP_SET_IF_GAIN5     124
 #define FCD_CMD_APP_SET_IF_GAIN6     125
-#define FCD_CMD_APP_FIRST_SETTER_CMD FCD_CMD_APP_SET_LNA_GAIN
-
-#define FCD_CMD_APP_NUM_PARAMS       (FCD_CMD_APP_SET_IF_GAIN6 - FCD_CMD_APP_SET_LNA_GAIN + 1)
 
 #define FCD_CMD_APP_FIRST_GET_CMD    150
 #define FCD_CMD_APP_GET_LNA_GAIN     150 // Retrieve a 1 byte value, see enums for reference
@@ -171,7 +152,6 @@ EXTERN FCD_API_EXPORT FCD_API_CALL const struct FCDParamInfo_ *lookupParamName (
 #define FCD_CMD_APP_GET_IF_GAIN4     163
 #define FCD_CMD_APP_GET_IF_GAIN5     164
 #define FCD_CMD_APP_GET_IF_GAIN6     165
-#define FCD_CMD_APP_FIRST_GETTER_CMD FCD_CMD_APP_GET_LNA_GAIN
 
 #define FCD_CMD_APP_SEND_I2C_BYTE    200
 #define FCD_CMD_APP_RECV_I2C_BYTE    201
@@ -238,7 +218,7 @@ typedef enum
   TRFE_BPF840MHZ=13,
   TRFE_BPF890MHZ=14,
   TRFE_BPF970MHZ=15,
-  // Band 3, L band
+  // Band 2, L band
   TRFE_BPF1300MHZ=0,
   TRFE_BPF1320MHZ=1,
   TRFE_BPF1360MHZ=2,
