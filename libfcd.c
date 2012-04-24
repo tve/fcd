@@ -30,7 +30,7 @@
 #endif
 #include "libfcd.h"
 #include <stdio.h>
-
+#include "fcd_param_names.c"
 
 #define FALSE 0
 #define TRUE 1
@@ -670,23 +670,109 @@ static char *defaultParams[] = { // these are the defaults in qthid3.0
   0
 };
 
+/** \brief Set defaults for a funcube dongle, to match those from qthid
+  * \param fcd Pointer to an FCD device descriptor 
+  *
+  * The return value can be used to determine the success or failure of the command execution:
+  * - FCD_MODE_APP : Reply from FCD was as expected (nominal case).
+  * - FCD_MODE_BL : Reply from FCD was not as expected.
+  * - FCD_MODE_NONE : No FCD was found
+  */
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd)
 {
   int i;
   for (i = 0; defaultParams[i]; ++i)
-    if (FCD_RETCODE_OKAY != fcdAppSetParamByName(fcd, paramName[i]))
+    if (FCD_RETCODE_OKAY != fcdAppSetParamByName(fcd, defaultParams[i]))
       return FCD_RETCODE_ERROR;
   return FCD_RETCODE_OKAY;
 }
 
+/** \brief Set a parameter to a value given as a string.
+  * \param fcd Pointer to an FCD device descriptor 
+  * \param valName Pointer to a parameter value string
+  *
+  * This function sets the value of an FCD parameter to the specified value.
+  * Because parameter value names are unique across parameters, we need only
+  * specify the parameter value name, not the parameter name.
+  * e.g. specify "IG5_P3_0DB" to set the IF_GAIN5 parameter to 3.0 dB
+  *
+  * The return value can be used to determine the success or failure of the command execution:
+  * - FCD_MODE_APP : Reply from FCD was as expected (nominal case).
+  * - FCD_MODE_BL : Reply from FCD was not as expected.
+  * - FCD_MODE_NONE : No FCD was found
+  */
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamByName(fcdDesc *fcd, char *valName)
 {
   if (!valName) 
     return FCD_RETCODE_ERROR;
-  FCDParamInfo *info = lookupParamName(valName, strlen(valName));
+  FCDParamInfo const *info = lookupParamName(valName, strlen(valName));
   if (!info)
     return FCD_RETCODE_ERROR;
   
-  return fcdAppSetParam(fcd, info->setID, &info->paramValue, sizeof(uint8_t));
+  return fcdAppSetParam(fcd, FCD_CMD_APP_FIRST_SETTER_CMD + (info->getID - FCD_CMD_APP_FIRST_GETTER_CMD), (uint8_t *) &info->paramValue, sizeof(uint8_t));
 }
 
+/** \brief Get the current value of a parameter as a string.
+  * \param fcd Pointer to an FCD device descriptor 
+  * \param paramName Pointer to a parameter name string
+  * \param outValName Location to store pointer to parameter value string.
+  *
+  * This function gets the value of an FCD parameter; e.g. if the IF_GAIN5 parameter
+  * is currently 3.0 dB, then this function stores a pointer to the string 
+  * "IG5_P3_0DB" in the location given by outValName.
+  *
+  * The return value can be used to determine the success or failure of the command execution:
+  * - FCD_MODE_APP : Reply from FCD was as expected (nominal case).
+  * - FCD_MODE_BL : Reply from FCD was not as expected.
+  * - FCD_MODE_NONE : No FCD was found
+  */
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamByName(fcdDesc *fcd, char *paramName, const char **outValName)
+{
+  if (!(paramName && outValName))
+    return FCD_RETCODE_ERROR;
+  FCDParamInfo const *info = lookupParamName(paramName, strlen(paramName));
+  if (!(info && info->isParamName))
+    return FCD_RETCODE_ERROR;
+  uint8_t pval;
+  FCD_RETCODE_ENUM rv = fcdAppGetParam(fcd, info->getID, &pval, sizeof(pval));
+  if (rv != FCD_RETCODE_OKAY)
+    return rv;
+  
+}
+
+/** \brief Return the list of parameter names.
+  * \param outParamNames Location to store pointer to array of string pointers.
+  *
+  * This function returns the names of funcube parameters which have uint8_t values.
+  *
+  * The return value can be used to determine the success or failure of the command execution:
+  * - FCD_MODE_APP : Reply from FCD was as expected (nominal case).
+  * - FCD_MODE_BL : Reply from FCD was not as expected.
+  * - FCD_MODE_NONE : No FCD was found
+  */
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamNames(const char **outParamNames[])
+{
+  static const char *paramNames[FCD_CMD_APP_NUM_PARAMS];
+  if (!outParamNames)
+    return FCD_RETCODE_ERROR;
+  if (!paramNames[0]) {
+    int i, j;
+    FCDParamInfo const *info = paramNameTable;
+    for (i=0, j=0; i < sizeof(paramNameTable) / sizeof(struct FCDParamInfo_); ++i)
+      if (info[i].isParamName)
+	paramNames[j++] = paramNamePool + info[i].name;
+  }
+  *outParamNames = paramNames;
+  return FCD_RETCODE_OKAY;
+}
+
+/** \brief Get the names of all possible values for a given parameter.
+  * \param paramName Pointer to a parameter name string
+  * \param out outValNames Location to store pointer to an array of string pointers.
+  *
+  * The return value can be used to determine the success or failure of the command execution:
+  * - FCD_MODE_APP : Reply from FCD was as expected (nominal case).
+  * - FCD_MODE_BL : Reply from FCD was not as expected.
+  * - FCD_MODE_NONE : No FCD was found
+  */
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParamValNames(char *paramName, char **outValNames[]);
