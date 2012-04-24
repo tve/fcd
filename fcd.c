@@ -33,7 +33,18 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-typedef enum {OPT_NONE, OPT_SERNUM='n', OPT_ENUMNUM='e', OPT_LIST='l', OPT_SET_DEFAULTS='d', OPT_GET_FREQ='g', OPT_SET_FREQ='s', OPT_SET_FREQ_KHZ='k'} cmds_t;
+typedef enum {
+  OPT_NONE,
+  OPT_SERNUM	   = 'n',
+  OPT_ENUMNUM	   = 'e',
+  OPT_LIST	   = 'l',
+  OPT_SET_DEFAULTS = 'd',
+  OPT_GET_FREQ	   = 'g',
+  OPT_SET_FREQ	   = 's',
+  OPT_SET_FREQ_KHZ = 'k',
+  OPT_SET_PARAMS   = 'w',
+  OPT_GET_PARAMS   = 'r'
+} cmds_t;
 
 int
 main(int argc, char **argv)
@@ -54,12 +65,14 @@ main(int argc, char **argv)
 	{"getfreq",    0, 0, OPT_GET_FREQ},
 	{"setfreq",    1, 0, OPT_SET_FREQ},
 	{"setfreqkHz", 1, 0, OPT_SET_FREQ_KHZ},
+	{"setparams",  0, 0, OPT_SET_PARAMS},
+	{"getparams",  0, 0, OPT_SET_PARAMS},
 	{0, 0, 0, 0}
     };
 
     for (;;) {
 
-      c = getopt_long(argc, argv, "e:n:ldgs:k:",
+      c = getopt_long(argc, argv, "e:n:ldgs:k:wr",
 		      long_options, NULL);
       if (c == -1)
 	break;
@@ -95,8 +108,33 @@ main(int argc, char **argv)
 	command = OPT_GET_FREQ;
 	break;
 
+      case OPT_SET_PARAMS:
+	command = OPT_SET_PARAMS;
+	break;
+
+      case OPT_GET_PARAMS:
+	command = OPT_GET_PARAMS;
+	break;
+
       default:
-	printf("usage: fcd [-l] [-e enumno] [-n sernum] [-g] [-s freq_Hz] [-k freq_kHz] [-d]\n");
+	printf("usage: \n"
+	       "fcd -l   - list available funcube devices\n"
+	       "fcd [DEVSPEC] -d - set default parameters\n"
+	       "fcd [DEVSPEC] -g - get current frequency\n"
+	       "fcd [DEVSPEC] -s freq_Hz - set frequency in Hz\n"
+	       "fcd [DEVSPEC] -k freq_kHz - set frequency in kHz\n"
+	       "fcd [DEVSPEC] -r P1 [P2 ... Pk] get values of parameters P1 ... Pk\n"
+	       "fcd [DEVSPEC] -w P1 V1 [P2 V2 ... Pk Vk] set values of parameter P1 to V1, P2 to V2, ... Pk to Vk\n"
+	       "for  [-e enumno] [-n sernum] [-s freq_Hz] [-k freq_kHz] [-d] [P1 P2 ... Pk]\n"
+	       "where [DEVSPEC] chooses a funcube like so:\n"
+	       "<blank>: use the first funcube found\n"
+	       "-e n: use the nth funcube found, with n=0 being the first\n"
+	       "-n s: use the device with serial number 's'; (NOT YET AVAILABLE IN FCD FIRMWARE)\n"
+	       "Parameters P1..Pk and their values V1..Vk  are specified as hex bytes, with a leading '0x'\n"
+	       "Parameters are numbered from 0 for LNA_GAIN to 15 for IF_GAIN6 - see libfcd.h.\n"
+	       "Parameter values are as they appear in the ENUMs in libfcd.h"
+	       "Values returned by the '-r' option are printed as single hex bytes with leading '0x', separated by spaces\n"
+	       );
 	exit(1);
       }
 
@@ -150,6 +188,34 @@ main(int argc, char **argv)
 	}
 	puts("Default gain and filtering parameters set.");
 	break;
+      case OPT_SET_PARAMS:
+	while (optind < argc) {
+	  uint8_t parno = (uint8_t) strtol(argv[optind++], 0, 0);
+	  if (optind >= argc) {
+	    printf("Error: missing value for parameter 0x%x\n", parno);
+	    exit(1);
+	  }
+	  uint8_t parval = (uint8_t) strtol(argv[optind++], 0, 0);
+	  if (FCD_RETCODE_OKAY != fcdAppSetParam(&fcd, FCD_CMD_APP_FIRST_SET_CMD + parno, &parval, sizeof(parval))) {
+	    printf("Error: unable to set parameter 0x%x to value 0x%x\n", parno, parval);
+	  }
+	}
+	exit(EXIT_SUCCESS);
+	break;
+
+      case OPT_GET_PARAMS:
+	while (optind < argc) {
+	  uint8_t parno = (uint8_t) strtol(argv[optind++], 0, 0);
+	  uint8_t parval;
+	  if (FCD_RETCODE_OKAY != fcdAppGetParam(&fcd, FCD_CMD_APP_FIRST_GET_CMD + parno, &parval, sizeof(parval))) {
+	    printf("Error: unable to get value of parameter 0x%x\n", parno);
+	  }
+	  printf("0x%x 0x%x\n", parno, parval);
+	}
+	exit(EXIT_SUCCESS);
+	break;
+
+	  
       default:
 	break;
       }

@@ -117,6 +117,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc 
 #define FCD_CMD_APP_SET_IQ_CORR      108 /*!< Send with 2 byte signed phase correction followed by 2 byte unsigned gain correction. 0 is the default centre value for phase correction, 32768 is the default centre value for gain. */
 #define FCD_CMD_APP_GET_IQ_CORR      109 /*!< Returns 2 byte signed phase correction followed by 2 byte unsigned gain correction. 0 is the default centre value for phase correction, 32768 is the default centre value for gain. */
 
+#define FCD_CMD_APP_FIRST_SET_CMD    110
 #define FCD_CMD_APP_SET_LNA_GAIN     110 /*!< Send a 1 byte value, see enums for reference. */
 #define FCD_CMD_APP_SET_LNA_ENHANCE  111
 #define FCD_CMD_APP_SET_BAND         112
@@ -134,6 +135,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc 
 #define FCD_CMD_APP_SET_IF_GAIN5     124
 #define FCD_CMD_APP_SET_IF_GAIN6     125
 
+#define FCD_CMD_APP_FIRST_GET_CMD    150
 #define FCD_CMD_APP_GET_LNA_GAIN     150 // Retrieve a 1 byte value, see enums for reference
 #define FCD_CMD_APP_GET_LNA_ENHANCE  151
 #define FCD_CMD_APP_GET_BAND         152
