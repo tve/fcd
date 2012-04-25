@@ -117,23 +117,26 @@ main(int argc, char **argv)
 	break;
 
       default:
-	printf("usage: \n"
+	printf("usage: \n\n"
 	       "fcd -l   - list available funcube devices\n"
 	       "fcd [DEVSPEC] -d - set default parameters\n"
 	       "fcd [DEVSPEC] -g - get current frequency\n"
 	       "fcd [DEVSPEC] -s freq_Hz - set frequency in Hz\n"
 	       "fcd [DEVSPEC] -k freq_kHz - set frequency in kHz\n"
-	       "fcd [DEVSPEC] -r P1 [P2 ... Pk] get values of parameters P1 ... Pk\n"
+	       "fcd [DEVSPEC] -r [P1 P2 ... Pk] get values of parameters P1 ... Pk, or all if none specified\n"
 	       "fcd [DEVSPEC] -w P1 V1 [P2 V2 ... Pk Vk] set values of parameter P1 to V1, P2 to V2, ... Pk to Vk\n"
-	       "for  [-e enumno] [-n sernum] [-s freq_Hz] [-k freq_kHz] [-d] [P1 P2 ... Pk]\n"
-	       "where [DEVSPEC] chooses a funcube like so:\n"
-	       "<blank>: use the first funcube found\n"
-	       "-e n: use the nth funcube found, with n=0 being the first\n"
-	       "-n s: use the device with serial number 's'; (NOT YET AVAILABLE IN FCD FIRMWARE)\n"
-	       "Parameters P1..Pk and their values V1..Vk  are specified as hex bytes, with a leading '0x'\n"
+	       "for  [-e enumno] [-n sernum] [-s freq_Hz] [-k freq_kHz] [-d] [P1 P2 ... Pk]\n\n"
+	       "where [DEVSPEC] chooses a funcube like so:\n\n"
+	       "   <blank>: use the first funcube found\n"
+	       "   -e n: use the nth funcube found, with n=0 being the first\n"
+	       "   -n s: use the device with serial number 's'; (NOT YET AVAILABLE IN FCD FIRMWARE)\n"
+	       "Parameters P1..Pk and their values V1..Vk  are specified as integers in decimal or hex'\n"
 	       "Parameters are numbered from 0 for LNA_GAIN to 15 for IF_GAIN6 - see libfcd.h.\n"
-	       "Parameter values are as they appear in the ENUMs in libfcd.h"
-	       "Values returned by the '-r' option are printed as single hex bytes with leading '0x', separated by spaces\n"
+	       "Parameter values are as they appear in the ENUMs in libfcd.h\n"
+	       "Values returned by the '-r' option are printed one per line as 0xX 0xY,\n"
+	       "where:\n"
+	       "   X is the parameter number in hex\n"
+	       "   Y is the parameter value in hex\n"
 	       );
 	exit(1);
       }
@@ -204,15 +207,20 @@ main(int argc, char **argv)
 	break;
 
       case OPT_GET_PARAMS:
-	while (optind < argc) {
-	  uint8_t parno = (uint8_t) strtol(argv[optind++], 0, 0);
-	  uint8_t parval;
-	  if (FCD_RETCODE_OKAY != fcdAppGetParam(&fcd, FCD_CMD_APP_FIRST_GET_CMD + parno, &parval, sizeof(parval))) {
-	    printf("Error: unable to get value of parameter 0x%x\n", parno);
+	{
+	  int get_all = (optind == argc);
+	  int n = get_all ? FCD_CMD_APP_NUM_PARAMS : (argc - optind);
+	  int i;
+	  for (i = 0; i < n; ++i) {
+	    uint8_t parno = get_all ? i : (uint8_t) strtol(argv[optind++], 0, 0);
+	    uint8_t parval;
+	    if (FCD_RETCODE_OKAY != fcdAppGetParam(&fcd, FCD_CMD_APP_FIRST_GET_CMD + parno, &parval, sizeof(parval))) {
+	      printf("Error: unable to get value of parameter 0x%x\n", parno);
+	    }
+	    printf("0x%x 0x%x\n", parno, parval);
 	  }
-	  printf("0x%x 0x%x\n", parno, parval);
+	  exit(EXIT_SUCCESS);
 	}
-	exit(EXIT_SUCCESS);
 	break;
 
 	  

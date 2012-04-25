@@ -135,6 +135,8 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc 
 #define FCD_CMD_APP_SET_IF_GAIN5     124
 #define FCD_CMD_APP_SET_IF_GAIN6     125
 
+#define FCD_CMD_APP_NUM_PARAMS       (FCD_CMD_APP_SET_IF_GAIN6 - FCD_CMD_APP_FIRST_SET_CMD + 1)
+
 #define FCD_CMD_APP_FIRST_GET_CMD    150
 #define FCD_CMD_APP_GET_LNA_GAIN     150 // Retrieve a 1 byte value, see enums for reference
 #define FCD_CMD_APP_GET_LNA_ENHANCE  151
