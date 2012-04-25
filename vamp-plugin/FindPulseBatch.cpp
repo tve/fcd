@@ -341,7 +341,7 @@ FindPulseBatch::getRemainingFeatures()
 }
 
 float FindPulseBatch::m_default_min_duration = 1;
-float FindPulseBatch::m_default_max_duration = 5;
+float FindPulseBatch::m_default_max_duration = 6;
 float FindPulseBatch::m_default_min_power = 3;
 float FindPulseBatch::m_default_max_freq_rsd = 0.7;
 int FindPulseBatch::m_default_pulse_power_win_size = 24;
