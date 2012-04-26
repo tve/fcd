@@ -120,3 +120,6 @@ So, here's how to start recording pulses on the beaglebone:
 FIXME 13 April 2012:
 - FIXED 25 April [alsa is using CLOCK_MONOTONIC instead of CLOCK_REALTIME for timestamps, so we correct]: pulse timestamps are wonky (why negative?) - 
 - fix padding in output? (now that we're not using autosprintf)
+
+FIXME 26 April 2012:
+- real timestamps are not propagated through Vamp's PluginBufferingAdapter to the plugin from the plugin host.  How should we fix this?  Adjust timestamp returned by plugin, given that it is based on m_frame?  Or make a new RTPluginBufferinAdapter?
