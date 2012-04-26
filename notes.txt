@@ -124,4 +124,6 @@ FIXME 13 April 2012:
 TODO 25 April 2012:
 - build vamp-rt-host outside of vamp sdk tree
 - add an option to read a config file to vamp-rt-host (a file of parameter name value pairs)
-
+- real timestamps are not propagated through Vamp's PluginBufferingAdapter to the plugin from the plugin host.  How should we fix this?  Adjust timestamp returned by plugin, given that it is based on m_frame?  Or make a new RTPluginBufferinAdapter? Or allow timestamps to be spaced by an aribtrary number
+of frames, and deal appropriately with that at the frame-advance level on both ends.
+- add a header giving timestamp size, endianness, and spacing at start of raw stream
