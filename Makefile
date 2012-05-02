@@ -11,3 +11,6 @@ libfcd.a:	libfcd.h libfcd.c hidapi.h hid-libusb.c hidmac.c hidwin.cpp Makefile
 
 fcd: libfcd.a fcd.c Makefile
 	gcc $(GCC_OPTIONS) -o fcd fcd.c -I$(LIBUSB_INCLUDE_PATH) -I. -L. -lfcd -lusb-1.0 -lpthread
+
+install: fcd
+	su -c 'cp fcd /usr/local/bin'
