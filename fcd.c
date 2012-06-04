@@ -171,21 +171,21 @@ main(int argc, char **argv)
 	  puts("Error: unable to get frequency for specified FCD.");
 	  exit(1);
 	}
-	printf("%d Hz\n", freq);
+	printf("%d\n", freq);
 	break;
       case OPT_SET_FREQ:
 	if (FCD_RETCODE_OKAY != fcdAppSetFreq(&fcd, freq)) {
 	  puts("Error: unable to set frequency for specified FCD.");
 	  exit(1);
 	}
-	printf("%d Hz\n", freq);
+	printf("%d\n", freq);
 	break;
       case OPT_SET_FREQ_KHZ:
 	if (FCD_RETCODE_OKAY != fcdAppSetFreqkHz(&fcd, freq)) {
 	  puts("Error: unable to set frequency in kHz for specified FCD.");
 	  exit(1);
 	}
-	printf("%d kHz\n", freq);
+	printf("%d\n", freq*1000);
 	break;
       case OPT_SET_DEFAULTS:
 	if (FCD_RETCODE_OKAY != fcdAppSetParamDefaults(&fcd)) {
