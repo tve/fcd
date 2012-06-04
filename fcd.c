@@ -70,13 +70,16 @@ main(int argc, char **argv)
 	{0, 0, 0, 0}
     };
 
+    int have_opt = 0;
+
     for (;;) {
 
       c = getopt_long(argc, argv, "e:n:ldgs:k:wr",
 		      long_options, NULL);
-      if (c == -1)
+      if (c == -1 && have_opt)
 	break;
 
+      have_opt = 1;
       switch (c) {
       case OPT_LIST:
 	command = OPT_LIST;
@@ -117,7 +120,7 @@ main(int argc, char **argv)
 	break;
 
       default:
-	printf("usage: \n\n"
+	printf("\nUsage: \n\n"
 	       "fcd -l   - list available funcube devices\n"
 	       "fcd [DEVSPEC] -d - set default parameters\n"
 	       "fcd [DEVSPEC] -g - get current frequency\n"
