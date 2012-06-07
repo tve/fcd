@@ -135,7 +135,7 @@ main(int argc, char **argv)
 	       "fcd [DEVSPEC] -k freq_kHz - set frequency in kHz\n"
 	       "fcd [DEVSPEC] -r [P1 P2 ... Pk] read and print values of parameters P1 ... Pk, or all if none specified\n"
 	       "fcd [DEVSPEC] -w P1 V1 [P2 V2 ... Pk Vk] set values of parameter P1 to V1, P2 to V2, ... Pk to Vk\n"
-	       "\n  e.g. fcd -p 0001:0003:02 -k 166380 -g -w 15 3\n\n"
+	       "\n  e.g. fcd -p 0001:0003:02 -k 166380 -g -w 0xf 3\n\n"
 	       "where [DEVSPEC] chooses a funcube like so:\n\n"
 	       "   <blank>: use the first funcube found\n"
 	       "   -e n: use the nth funcube found, with n=0 being the first\n"
