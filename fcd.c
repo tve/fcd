@@ -139,6 +139,7 @@ main(int argc, char **argv)
 	       "where [DEVSPEC] chooses a funcube like so:\n\n"
 	       "   <blank>: use the first funcube found\n"
 	       "   -e n: use the nth funcube found, with n=0 being the first\n"
+	       "   -p <path>: use the usb path as shown by fcd -l; e.g. fcd -p 0001:001c:02\n"
 	       "   -n s: use the device with serial number 's'; (NOT YET AVAILABLE IN FCD FIRMWARE)\n"
 	       "Parameters P1..Pk and their values V1..Vk  are specified as integers in decimal or hex'\n"
 	       "Parameters are numbered from 0 for LNA_GAIN to 15 for IF_GAIN6 - see libfcd.h.\n"
