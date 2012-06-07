@@ -36,6 +36,7 @@
 typedef enum {
   OPT_NONE,
   OPT_SERNUM	   = 'n',
+  OPT_USB_PATH     = 'p',
   OPT_ENUMNUM	   = 'e',
   OPT_LIST	   = 'l',
   OPT_SET_DEFAULTS = 'd',
@@ -56,9 +57,11 @@ main(int argc, char **argv)
     uint32_t freq;
     fcdDesc fcd;
     int devOpen = 0;
-    
+    char *usbPath = 0;
+
     static struct option long_options[] = {
 	{"serialnum",  1, 0, OPT_SERNUM},
+	{"path",       1, 0, OPT_USB_PATH},
 	{"enumnum",    1, 0, OPT_ENUMNUM},
 	{"list",       0, 0, OPT_LIST},
 	{"defaults",   0, 0, OPT_SET_DEFAULTS},
@@ -74,7 +77,7 @@ main(int argc, char **argv)
 
     for (;;) {
 
-      c = getopt_long(argc, argv, "e:n:ldgs:k:wr",
+      c = getopt_long(argc, argv, "e:p:n:ldgs:k:wr",
 		      long_options, NULL);
       if (c == -1 && have_opt)
 	break;
@@ -91,6 +94,10 @@ main(int argc, char **argv)
 
       case OPT_SERNUM:
 	serialNum = atoi(optarg);
+	break;
+
+      case OPT_USB_PATH:
+	usbPath = optarg;
 	break;
 
       case OPT_ENUMNUM:
@@ -148,7 +155,7 @@ main(int argc, char **argv)
       case OPT_LIST:
 	puts("These FCDs found:");
 	for (enumNum=0, serialNum=0;; ++enumNum) {
-	  if (FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum)) {
+	  if (FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum, usbPath)) {
 	    break;
 	  }
 	  printf("enum: %2d; serial: %6d; path: %s\n", fcd.enumNum, fcd.serialNum, fcd.pszPath);
@@ -159,7 +166,7 @@ main(int argc, char **argv)
       default:
 	break;
       }
-      if (!devOpen && FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum)) {
+      if (!devOpen && FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum, usbPath)) {
 	puts("Error: unable to open specified FCD.");
 	exit(1);
       }

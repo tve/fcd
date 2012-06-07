@@ -43,13 +43,14 @@ const unsigned short _usPID=0xFB56;  /*!< USB product ID. */
   * \param fcd Pointer to a pre-allocated FCD device descriptor, whose fields will be filled by this function.
   * \param serialNum serial number of device to open; 0 means ignore serial number and use enumNum
   * \param enumNum enumeration number of device to open; 0 means first, 1 means 2nd, etc.
+  * \param usbPath usb path of device to open
   * \return The parameter fcd, or NULL if the matching FCD was not found.
   *
   * This function looks for FCD devices connected to the computer and
   * opens the first one found that matches the target serial number,
   * or the enumNum'th one if the target serial number is 0.
   */
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t serialNum, uint16_t enumNum)
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t serialNum, uint16_t enumNum, const char *usbPath)
 {
     struct hid_device_info *phdi=NULL, *phdiList = NULL;
     uint16_t curEnumNum;
@@ -71,7 +72,8 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16
 	// get curSerialNum for this enumerated device
 	curSerialNum = 0;     // CHANGEME: once FCD serial number API exists; parse serial # from device name string
 	if ((serialNum  > 0 && curSerialNum == serialNum) ||
-	    (serialNum == 0 && curEnumNum == enumNum))
+            (usbPath && 0 == strcmp(usbPath, phdi->path)) ||
+	    (serialNum == 0 && usbPath == 0 && curEnumNum == enumNum))
 	    break;
     }
     if (!phdi) {

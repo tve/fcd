@@ -34,7 +34,7 @@ Issues:
         /sys/bus/usb/devices/1-1.6  13
         /sys/bus/usb/devices/1-1.7  14
 
-    so that, for example, the device in phyiscal slot 5 has been given libusb address 12.
+    so that, for example, the device in physical slot 5 has been given libusb address 12.
     If the hub has more than 7 ports, the expression [1-7] would need to be changed, to
     e.g. [1-9].  With more than 9 ports, use two or more wildcard expressions:
 

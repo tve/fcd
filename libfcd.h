@@ -70,7 +70,7 @@ extern "C" {
 #endif
 
 /* Application functions */
-EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t serialNum, uint16_t enumNum);
+EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t serialNum, uint16_t enumNum, const char *usbPath);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD_MODE_ENUM *pMode);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str);
