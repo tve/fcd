@@ -300,7 +300,7 @@ FindPulseBatch::process(const float *const *inputBuffers,
                         feature.hasDuration = true;
                         feature.duration = Vamp::RealTime::fromSeconds(duration_msec / 1000.0);
                         feature.timestamp = timestamp +
-                            Vamp::RealTime::frame2RealTime((signed int) i - m_duration, (size_t)m_inputSampleRate);
+                            Vamp::RealTime::frame2RealTime((signed int) i - m_duration / 2, (size_t)m_inputSampleRate);
                         feature.values.clear();
                         feature.values.push_back(10 * log10f(m_total_power / m_duration));
                         feature.values.push_back(10 * log10f(m_bkgd_power_ma.get_average()));

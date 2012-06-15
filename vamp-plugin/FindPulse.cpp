@@ -296,7 +296,7 @@ FindPulse::process(const float *const *inputBuffers,
                         feature.hasDuration = true;
                         feature.duration = Vamp::RealTime::fromSeconds(duration_msec / 1000.0);
                         feature.timestamp = timestamp +
-                            Vamp::RealTime::frame2RealTime((signed int) i - m_duration, (size_t)m_inputSampleRate);
+                            Vamp::RealTime::frame2RealTime((signed int) i - m_duration / 2, (size_t)m_inputSampleRate);
                         std::stringstream ss;
                         ss.precision(1);
                         ss << "dFreq: " <<
