@@ -81,13 +81,14 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16
     }
 	
     fcd->pszPath=strdup(phdi->path);
+    hid_free_enumeration(phdiList);
+    phdi=NULL;
+
     if (fcd->pszPath==NULL)
     {
         return FCD_RETCODE_ERROR;
     }
 
-    hid_free_enumeration(phdiList);
-    phdi=NULL;
 
     if ((fcd->phd=hid_open_path(fcd->pszPath)) == NULL)
     {
