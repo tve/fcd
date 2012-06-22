@@ -196,7 +196,7 @@ FindPulseBatch::getParameterDescriptors() const
     d.description = "Number of samples in moving-average window for background power";
     d.unit = "samples";
     d.minValue = 1;
-    d.maxValue = 4096;
+    d.maxValue = 40960;
     d.defaultValue = FindPulseBatch::m_default_bkgd_power_win_size;
     d.isQuantized = true;
     d.quantizeStep = 1;
@@ -309,9 +309,12 @@ FindPulseBatch::process(const float *const *inputBuffers,
                         returnFeatures[0].push_back(feature);
                     }
                 }
-                if (! pulse_valid)
-                // add this invalid pulse's power to background
-                    m_bkgd_power_ma.process(m_total_power);
+                if (! pulse_valid) {
+                        // add this invalid pulse's power to background
+                    float average_power = m_total_power / m_duration;
+                    for (int i=m_duration; i > 0; --i) 
+                        m_bkgd_power_ma.process(average_power);
+                }
             } else if (power >= power_thresh && power_thresh > 0) {
                 if (! m_in_pulse) {
                     m_total_power = 0;
@@ -345,4 +348,4 @@ float FindPulseBatch::m_default_max_duration = 6;
 float FindPulseBatch::m_default_min_power = 3;
 float FindPulseBatch::m_default_max_freq_rsd = 0.7;
 int FindPulseBatch::m_default_pulse_power_win_size = 24;
-int FindPulseBatch::m_default_bkgd_power_win_size = 1024;
+int FindPulseBatch::m_default_bkgd_power_win_size = 4096;

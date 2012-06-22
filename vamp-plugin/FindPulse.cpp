@@ -322,6 +322,10 @@ FindPulse::process(const float *const *inputBuffers,
                     }
                 }
                 // add this invalid pulse's power to background
+                        // add this invalid pulse's power to background
+                    float average_power = m_total_power / m_duration;
+                    for (int i=m_duration; i > 0; --i) 
+                        m_bkgd_power_ma.process(average_power);
                 m_bkgd_power_ma.process(m_total_power);
             do_not_void_pulse:
                 ;
