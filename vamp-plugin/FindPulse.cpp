@@ -296,9 +296,9 @@ FindPulse::process(const float *const *inputBuffers,
                         feature.hasDuration = true;
                         feature.duration = Vamp::RealTime::fromSeconds(duration_msec / 1000.0);
                         feature.timestamp = timestamp +
-                            Vamp::RealTime::frame2RealTime((signed int) i - m_duration, (size_t)m_inputSampleRate);
+                            Vamp::RealTime::frame2RealTime((signed int) i - m_duration / 2, (size_t)m_inputSampleRate);
                         std::stringstream ss;
-                        ss.precision(1);
+                        ss.precision(3);
                         ss << "dFreq: " <<
                             arg(m_pulse_phasor_ma.get_buffer_average()) / (2 * M_PI) * m_inputSampleRate / 1000 << " kHz; SNR: " <<
                             10 * log10f(m_total_power / (m_bkgd_power_ma.get_average() * m_duration)) << " dB; Dur: " <<
@@ -312,7 +312,7 @@ FindPulse::process(const float *const *inputBuffers,
                                 ss << "; Gap: " << gap.msec() << " ms";
                             } else {
                                 ss.precision(1);
-                                ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " ms";
+                                ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " s";
                             }
                         }
                         m_last_timestamp = feature.timestamp;
