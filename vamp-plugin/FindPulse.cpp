@@ -285,12 +285,14 @@ FindPulse::process(const float *const *inputBuffers,
             float power = m_pulse_power_ma.get_average();
             float power_thresh = m_bkgd_power_ma.get_average() * m_power_ratio;
             if (m_in_pulse && (power < power_thresh || m_duration > m_max_samples)) {
+                bool pulse_valid = false;
                 m_in_pulse = false;
                 // we've finished a pulse; check whether it meets filtering criteria
                 float duration_msec = m_duration / m_inputSampleRate * 1000;
                 if (duration_msec >= m_min_duration && duration_msec <= m_max_duration && m_duration > 1) {
                     float rsd = sqrtf(1.0 - abs(m_pulse_phasor_ma.get_buffer_average()));
                     if (rsd < m_max_freq_rsd) {
+                        pulse_valid = true;
                         Feature feature;
                         feature.hasTimestamp = true;
                         feature.hasDuration = true;
@@ -318,17 +320,14 @@ FindPulse::process(const float *const *inputBuffers,
                         m_last_timestamp = feature.timestamp;
                         feature.label = ss.str();
                         returnFeatures[0].push_back(feature);
-                        goto do_not_void_pulse;
                     }
                 }
-                // add this invalid pulse's power to background
+                if (! pulse_valid) {
                         // add this invalid pulse's power to background
                     float average_power = m_total_power / m_duration;
                     for (int i=m_duration; i > 0; --i) 
                         m_bkgd_power_ma.process(average_power);
-                m_bkgd_power_ma.process(m_total_power);
-            do_not_void_pulse:
-                ;
+                }
             } else if (power >= power_thresh && power_thresh > 0) {
                 if (! m_in_pulse) {
                     m_total_power = 0;
