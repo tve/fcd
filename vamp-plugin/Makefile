@@ -21,7 +21,7 @@ PLUGIN_LIBRARY_NAME = lotek-plugins
 
 # Edit this to list one .o file for each .cpp file in your plugin project
 #
-PLUGIN_CODE_OBJECTS = FindPulse.o FindPulseBatch.o AveragePower.o
+PLUGIN_CODE_OBJECTS = FindPulseFD.o FindPulse.o FindPulseBatch.o AveragePower.o
 
 # Edit this to the location of the Vamp plugin SDK, relative to your
 # project directory
@@ -31,10 +31,11 @@ VAMP_SDK_LIB_DIR = /usr/local/lib
 
 ##  Uncomment these for Linux using the standard tools:
 
-CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -O2
+CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -g3
+## CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -O2
 PLUGIN_EXT = .so
 PLUGIN = $(PLUGIN_LIBRARY_NAME)$(PLUGIN_EXT)
-LDFLAGS = -shared -Wl,-soname=$(PLUGIN) $(VAMP_SDK_LIB_DIR)/libvamp-sdk.a -Wl,--version-script=vamp-plugin.map
+LDFLAGS = -shared -Wl,-soname=$(PLUGIN) $(VAMP_SDK_LIB_DIR)/libvamp-sdk.a -lfftw3f -Wl,--version-script=vamp-plugin.map
 
 
 $(PLUGIN): $(PLUGIN_CODE_OBJECTS) lotek-plugins.o
@@ -42,11 +43,13 @@ $(PLUGIN): $(PLUGIN_CODE_OBJECTS) lotek-plugins.o
 
 lotek-plugins.o: $(PLUGIN_CODE_OBJECTS) lotek-plugins.cpp
 
-FindPulse.o: MovingAverager.h
+FindPulseFD.o: FindPulseFD.h PeakFinder.h MovingAverager.h
 
-FindPulseBatch.o: MovingAverager.h
+FindPulse.o: FindPulse.h MovingAverager.h
 
-AveragePower.o: MovingAverager.h
+FindPulseBatch.o: FindPulseBatch.h MovingAverager.h
+
+AveragePower.o: AveragePower.h MovingAverager.h
 
 clean:
 	rm -f *.o

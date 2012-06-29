@@ -168,7 +168,7 @@ AveragePower::setParameter(string id, float value)
     if (id == "powwinsize") {
         AveragePower::m_default_power_win_size = m_power_win_size = value;
     } else if (id == "decimrate") {
-        AveragePower::m_default_decim_rate = m_decim_rate = value;
+        AveragePower::m_default_decim_rate = m_decim_counter = m_decim_rate = value;
     }
 }
 
@@ -199,7 +199,7 @@ AveragePower::process(const float *const *inputBuffers,
 {
     FeatureSet returnFeatures;
 
-    if (m_stepSize == 0) {
+    if (m_stepSize == 0 || m_decim_counter == 0) {
 	cerr << "ERROR: AveragePower::process: "
 	     << "AveragePower has not been initialised"
 	     << endl;
