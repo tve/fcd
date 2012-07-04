@@ -42,7 +42,7 @@
 
 #include <boost/circular_buffer.hpp>
 #include "vamp-sdk/Plugin.h"
-#include "PeakFinder.h"
+#include "PulseFinder.h"
 #include <complex>
 #include <fftw3.h>
 
@@ -89,31 +89,34 @@ protected:
     
     // paramters
     float m_plen;        // width of pulse we're trying to detect, in ms
-    float m_min_pulse_score; // min score of pulse power vs. mean noise power to be accepted
+    float m_min_pulse_power_dB; // min power for pulse to be accepted
     int m_fft_win_size;  // number of consecutive samples in non-overlapping FFT windows
-    float m_noise_estimator_decay; // constant multiplier in [0,1] of current mean noise when computing new mean noise estimate
-    
+    float m_min_freq;  // only accept pulses from bins whose centre frequency is at least this
+    float m_max_freq;  // only accept pulses from bins whose centre frequency is at most this
+
     // parameter defaults
-    static float m_default_plen;           // width of pulse we're trying to detect, in ms
-    static float m_default_min_pulse_score;       // min score of pulse power vs. mean noise power to be accepted
-    static int   m_default_fft_win_size;            // number of consecutive samples in non-overlapping FFT wi
-    static float m_default_noise_estimator_decay; // constant multiplier in [0,1] of current mean noise when computing new mean noise estimate
+    static float m_default_plen;                   // width of pulse we're trying to detect, in ms
+    static float m_default_min_pulse_power_dB;     // min value of pulse power to be accepted
+    static int   m_default_fft_win_size;           // number of consecutive samples in non-overlapping FFT wi
+    static float m_default_min_freq;  // only accept pulses from bins whose centre frequency is at least this
+    static float m_default_max_freq;  // only accept pulses from bins whose centre frequency is at most this
 
     // internal registers
+    float m_probe_scale; // divisor to convert raw probe value to power
+    float m_min_probe; // scaled value of m_min_pulse_power_dB
     float *m_power; // power in time domain
     fftwf_complex *m_fft; // DFT of power
     fftwf_plan m_plan;
     bool m_have_fft_plan;
     int m_pf_size; // size of peak finder moving average window (in units of fft windows)
-    float m_power_adjust; // 10 * log10( 1 / sqrt(m_fft_win_size)) adjustment to raw power to account for fftw3 not scaling
-
+    float m_min_pulse_power; // minimum pulse power to be accepted (raw units)
     std::vector < Vamp::RealTime > m_last_timestamp;
 
     int m_num_power_samples;  // number of samples put in m_power array since last fft
+    unsigned int m_first_freq_bin; // index of first frequency bin to monitor
+    unsigned int m_last_freq_bin; // index of last frequency bin to monitor
 
-    std::vector < PeakFinder < float > > m_freq_bin_peak_finder;
-    std::vector < float > m_freq_bin_noise_mean;
-    std::vector < float > m_freq_bin_noise_dev;
+    std::vector < PulseFinder < float > > m_freq_bin_pulse_finder;
 };
 
 

@@ -53,9 +53,10 @@ FindPulseFD::FindPulseFD(float inputSampleRate) :
     m_stepSize(0),
     m_blockSize(0),
     m_plen(FindPulseFD::m_default_plen),
-    m_min_pulse_score(FindPulseFD::m_default_min_pulse_score),
+    m_min_pulse_power_dB(FindPulseFD::m_default_min_pulse_power_dB),
     m_fft_win_size(FindPulseFD::m_default_fft_win_size),
-    m_noise_estimator_decay(FindPulseFD::m_default_noise_estimator_decay),
+    m_min_freq(FindPulseFD::m_default_min_freq),
+    m_max_freq(FindPulseFD::m_default_max_freq),
     m_have_fft_plan(false),
     m_num_power_samples(0)
 {
@@ -117,21 +118,23 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
     m_stepSize = stepSize;
     m_blockSize = blockSize;
 
-    m_pf_size = m_inputSampleRate * (m_plen / 1000.0) / m_fft_win_size;
+    m_pf_size = ceilf(m_inputSampleRate * (m_plen / 1000.0) / m_fft_win_size);
 
     int num_bins = m_fft_win_size / 2 + 1;
-    m_power_adjust = - 10 * log10f(2 * m_fft_win_size); // dB to adjust power due to fftw not scaling
 
     m_last_timestamp = std::vector < Vamp::RealTime > (num_bins, Vamp::RealTime(-1, 0));
 
-    m_freq_bin_peak_finder = std::vector < PeakFinder < float > > (num_bins, PeakFinder < float > (m_pf_size));
-
-    m_freq_bin_noise_mean = std::vector <float> (num_bins, 0);
-    m_freq_bin_noise_dev = std::vector <float> (num_bins, 1);
+    m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size));
 
     m_power = fftwf_alloc_real(m_fft_win_size);
     m_fft = fftwf_alloc_complex(m_fft_win_size / 2 + 1);
     m_plan = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_power, m_fft, FFTW_MEASURE);
+
+    m_probe_scale = m_pf_size * 2 * m_fft_win_size;
+    m_min_probe = exp10f(m_min_pulse_power_dB / 10.0) * m_probe_scale;
+
+    m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
+    m_last_freq_bin = 1 + ceilf(m_max_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
     return true;
 }
 
@@ -156,13 +159,13 @@ FindPulseFD::getParameterDescriptors() const
     d.isQuantized = false;
     list.push_back(d);
 
-    d.identifier = "minscore";
-    d.name = "Minimum Pulse Score";
-    d.description = "Minimum z-score of a pulse in its frequency bin, measured against background mean and SD in bin; lower scoring pulses are discarded";
-    d.unit = "SD above mean";
-    d.minValue = 0;
-    d.maxValue = 50;
-    d.defaultValue = FindPulseFD::m_default_min_pulse_score;
+    d.identifier = "minpower";
+    d.name = "Minimum Pulse Power";
+    d.description = "Minimum pulse power, in dB";
+    d.unit = "dB";
+    d.minValue = -100;
+    d.maxValue = 0;
+    d.defaultValue = FindPulseFD::m_default_min_pulse_power_dB;
     d.isQuantized = false;
     list.push_back(d);
 
@@ -177,13 +180,23 @@ FindPulseFD::getParameterDescriptors() const
     d.quantizeStep = 1;
     list.push_back(d);
 
-    d.identifier = "noiseestdecay";
-    d.name = "Noise estimator decay constant";
-    d.description = "Constant by which existing noise sum and sum of squares is multiplied before adding new noise sample";
-    d.unit = "";
+    d.identifier = "minfreq";
+    d.name = "Minimum Tag Offset Frequency";
+    d.description = "Minimum frequency by which tag differs from receiver, in kHz";
+    d.unit = "kHz";
     d.minValue = 0;
-    d.maxValue = 1;
-    d.defaultValue = FindPulseFD::m_default_noise_estimator_decay;
+    d.maxValue = 48;
+    d.defaultValue = FindPulseFD::m_default_min_freq;
+    d.isQuantized = false;
+    list.push_back(d);
+
+    d.identifier = "maxfreq";
+    d.name = "Maximum Tag Offset Frequency";
+    d.description = "Maximum frequency by which tag differs from receiver, in kHz";
+    d.unit = "kHz";
+    d.minValue = 0;
+    d.maxValue = 48;
+    d.defaultValue = FindPulseFD::m_default_max_freq;
     d.isQuantized = false;
     list.push_back(d);
 
@@ -195,12 +208,14 @@ FindPulseFD::getParameter(string id) const
 {
     if (id == "plen") {
         return m_plen;
-    } else if (id == "minscore") {
-        return m_min_pulse_score;
+    } else if (id == "minpower") {
+        return m_min_pulse_power_dB;
     } else if (id == "fftsize") {
         return m_fft_win_size;
-    } else if (id == "noiseestdecay") {
-        return m_noise_estimator_decay;
+    } else if (id == "minfreq") {
+        return m_min_freq;
+    } else if (id == "maxfreq") {
+        return m_max_freq;
     }
     return 0.f;
 }
@@ -210,12 +225,14 @@ FindPulseFD::setParameter(string id, float value)
 {
     if (id == "plen") {
         FindPulseFD::m_default_plen = m_plen = value;
-    } else if (id == "minscore") {
-        FindPulseFD::m_default_min_pulse_score = m_min_pulse_score = value;
+    } else if (id == "minpower") {
+        FindPulseFD::m_default_min_pulse_power_dB = m_min_pulse_power_dB = value;
     } else if (id == "fftsize") {
         FindPulseFD::m_default_fft_win_size = m_fft_win_size = value;
-    } else if (id == "noiseestdecay") {
-        FindPulseFD::m_default_noise_estimator_decay = m_noise_estimator_decay = value;
+    } else if (id == "minfreq") {
+        FindPulseFD::m_default_min_freq = m_min_freq = value;
+    } else if (id == "maxfreq") {
+        FindPulseFD::m_default_max_freq = m_max_freq = value;
     }
 }
 
@@ -256,41 +273,40 @@ FindPulseFD::process(const float *const *inputBuffers,
     unsigned n_freq_bins = m_fft_win_size / 2;
 
     for (unsigned int i=0; i < m_blockSize; ++i) {
-        float sample_power = sqrtf(inputBuffers[0][i] * inputBuffers[0][i] 
-                                   + inputBuffers[1][i] * inputBuffers[1][i]);
-        m_power[m_num_power_samples++] = sample_power;
-        if (m_num_power_samples == m_fft_win_size) {
+        float sample_power = inputBuffers[0][i];
+        // float sample_power = sqrtf(inputBuffers[0][i] * inputBuffers[0][i] 
+        //                            + inputBuffers[1][i] * inputBuffers[1][i]);
+        m_power[m_num_power_samples] = sample_power * (1 - 2 * abs(m_num_power_samples - m_fft_win_size / 2) / m_fft_win_size);
+        if (m_num_power_samples++ == m_fft_win_size) {
             m_num_power_samples = 0;
 
             fftwf_execute(m_plan);
 
-            for (unsigned int j = 1; j < n_freq_bins; ++j) {
+            for (unsigned int j = m_first_freq_bin; j < m_last_freq_bin; ++j) {
                 // replace each bin's real component with bin power
                 m_fft[j][0] = m_fft[j][0] * m_fft[j][0]
                     + m_fft[j][1] * m_fft[j][1];
 
                 // process power in each freq bin
-                m_freq_bin_peak_finder[j].process(m_fft[j][0]);
+                m_freq_bin_pulse_finder[j].process(m_fft[j][0]);
             }            
-            // Any frequency bin may have seen a peak (local max).
-            // This will be called a "pulse candidate" if it has a
-            // z-score (against bin noise) of at least
-            // m_min_pulse_score.  Looking across bins, for any
+            // Any frequency bin may have seen a pulse (local max).
+            // Looking across bins, for any
             // contiguous sequence of pulse candidates, we accept as a
-            // pulse only the pulse candidate with the largest score.
+            // pulse only the pulse candidate with the largest probe.
             // This avoids reporting multiple pulses when a single pulse
             // is smeared across adjacent frequency bins.
 
             unsigned int best_in_seq = 0;
-            float best_score_in_seq = 0;
+            float highest_probe_in_seq = 0;
             bool in_seq = false;
-            for (unsigned int j = 1; j <= n_freq_bins; ++j) {
-                float bin_score;
-                if (j < n_freq_bins && m_freq_bin_peak_finder[j].got_peak() 
-                    && (bin_score = (m_freq_bin_peak_finder[j].peak_val() - m_freq_bin_noise_mean[j]) / m_freq_bin_noise_dev[j]) >= m_min_pulse_score) {
+            for (unsigned int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
+                float bin_probe;
+                if (j < n_freq_bins && m_freq_bin_pulse_finder[j].got_pulse() 
+                    && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= m_min_probe) {
                     // it's a pulse candidate
-                    if ((! in_seq) || (in_seq && (bin_score > best_score_in_seq))) {
-                        best_score_in_seq = bin_score;
+                    if ((! in_seq) || (in_seq && (bin_probe > highest_probe_in_seq))) {
+                        highest_probe_in_seq = bin_probe;
                         best_in_seq = j;
                         in_seq = true;
                     }
@@ -303,17 +319,16 @@ FindPulseFD::process(const float *const *inputBuffers,
                         feature.hasTimestamp = true;
                         feature.hasDuration = false;
 
-                        // The pulse timestamp is taken to be the centre of the moving average window.
+                        // The pulse timestamp is taken to be the centre of the fft window
 
                         feature.timestamp = timestamp +
-                            Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (1 + m_pf_size / 2), (size_t)m_inputSampleRate);
+                            Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * 5 * m_pf_size / 2, (size_t) m_inputSampleRate);
                         std::stringstream ss;
                         ss.precision(3);
                         // frequency is that of middle of bin
-                        ss << "freq: " << (best_in_seq * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
-                           << " kHz; pwr: " << 10 * log10f(m_freq_bin_peak_finder[best_in_seq].peak_val()) + m_power_adjust
-                           << " dB; score: " << best_score_in_seq
-                           << "; noise: " << 10 * log10f(m_freq_bin_noise_mean[best_in_seq]) + m_power_adjust << " dB";
+                        ss << "freq: " << ((best_in_seq + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
+                           << " kHz; pwr: " << 10 * log10f(highest_probe_in_seq / m_probe_scale)
+                           << " dB";
                         ss.precision(2);
                         if (m_last_timestamp[best_in_seq].sec >= 0) {
                             Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[best_in_seq];
@@ -330,14 +345,47 @@ FindPulseFD::process(const float *const *inputBuffers,
                         returnFeatures[0].push_back(feature);
                         in_seq = false;
                     }
-                    // update the background noise estimates
-                    // with the power from this bin
-                    m_freq_bin_noise_mean[j] *= m_noise_estimator_decay;
-                    m_freq_bin_noise_mean[j] += (1 - m_noise_estimator_decay) * m_fft[j][0];
-                    m_freq_bin_noise_dev[j] *= m_noise_estimator_decay;
-                    m_freq_bin_noise_dev[j] += (1 - m_noise_estimator_decay) * fabsf(m_fft[j][0] - m_freq_bin_noise_mean[j]);
                 }
             }
+            // VERSION where we output a pulse in any bin where it is found
+            //
+            // for (unsigned int j = 1; j < n_freq_bins; ++j) {
+            //     float bin_probe;
+            //     if (m_freq_bin_pulse_finder[j].got_pulse() 
+            //         && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= m_min_probe) {
+            //         // it's a pulse candidate
+            //         // dump the feature from the just-ended sequence
+            //         // of pulse candidates
+            //         Feature feature;
+            //         feature.hasTimestamp = true;
+            //         feature.hasDuration = false;
+
+            //         // The pulse timestamp is taken to be the centre of the fft window
+
+            //         feature.timestamp = timestamp +
+            //             Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (0.5 + m_pf_size), (size_t) m_inputSampleRate);
+            //         std::stringstream ss;
+            //         ss.precision(3);
+            //         // frequency is that of middle of bin
+            //         ss << "freq: " << ((j + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
+            //            << " kHz; pwr: " << 10 * log10f(bin_probe / m_probe_scale)
+            //            << " dB";
+            //         ss.precision(2);
+            //         if (m_last_timestamp[j].sec >= 0) {
+            //             Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[j];
+            //             if (gap.sec < 1) {
+            //                 ss.precision(0);
+            //                 ss << "; Gap: " << gap.msec() << " ms";
+            //             } else {
+            //                 ss.precision(1);
+            //                 ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " s";
+            //             }
+            //         }
+            //         m_last_timestamp[j] = feature.timestamp;
+            //         feature.label = ss.str();
+            //         returnFeatures[0].push_back(feature);
+            //     }
+            // }
         }
     }
     return returnFeatures;
@@ -350,6 +398,7 @@ FindPulseFD::getRemainingFeatures()
 }
 
 float FindPulseFD::m_default_plen = 2.5; // milliseconds
-float FindPulseFD::m_default_min_pulse_score = 2.5; // z-score
+float FindPulseFD::m_default_min_pulse_power_dB = -45; // dB
 int FindPulseFD::m_default_fft_win_size = 48; // 0.5 milliseconds
-float FindPulseFD::m_default_noise_estimator_decay = 0.9999; // half-life of 6931 samples
+float FindPulseFD::m_default_min_freq = 0.0; // 0 kHz
+float FindPulseFD::m_default_max_freq = 12.0; // 12 kHz
