@@ -104,17 +104,17 @@ protected:
     // internal registers
     float m_probe_scale; // divisor to convert raw probe value to power
     float m_min_probe; // scaled value of m_min_pulse_power_dB
-    float *m_power; // power in time domain
+    float *m_windowed[2]; // windowed data in time domain (one buffer for each phase of overlapping window sequence)
     fftwf_complex *m_fft; // DFT of power
-    fftwf_plan m_plan;
+    fftwf_plan m_plan[2]; // lazily generate a plan for both input phase windows
     bool m_have_fft_plan;
     int m_pf_size; // size of peak finder moving average window (in units of fft windows)
     float m_min_pulse_power; // minimum pulse power to be accepted (raw units)
     std::vector < Vamp::RealTime > m_last_timestamp;
 
-    int m_num_power_samples;  // number of samples put in m_power array since last fft
-    unsigned int m_first_freq_bin; // index of first frequency bin to monitor
-    unsigned int m_last_freq_bin; // index of last frequency bin to monitor
+    int m_num_windowed_samples[2];  // number of samples put in m_windowed array since last fft; one for each phase window
+    int m_first_freq_bin; // index of first frequency bin to monitor
+    int m_last_freq_bin; // index of last frequency bin to monitor
 
     std::vector < PulseFinder < float > > m_freq_bin_pulse_finder;
 };

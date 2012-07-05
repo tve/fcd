@@ -57,16 +57,17 @@ FindPulseFD::FindPulseFD(float inputSampleRate) :
     m_fft_win_size(FindPulseFD::m_default_fft_win_size),
     m_min_freq(FindPulseFD::m_default_min_freq),
     m_max_freq(FindPulseFD::m_default_max_freq),
-    m_have_fft_plan(false),
-    m_num_power_samples(0)
+    m_have_fft_plan(false)
 {
 }
 
 FindPulseFD::~FindPulseFD()
 {
     if (m_have_fft_plan) {
-         fftwf_destroy_plan(m_plan);
-         fftw_free(m_power); 
+         fftwf_destroy_plan(m_plan[0]);
+         fftwf_destroy_plan(m_plan[1]);
+         fftw_free(m_windowed[0]); 
+         fftw_free(m_windowed[1]); 
          fftw_free(m_fft);
          m_have_fft_plan = false;
     }
@@ -118,7 +119,7 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
     m_stepSize = stepSize;
     m_blockSize = blockSize;
 
-    m_pf_size = ceilf(m_inputSampleRate * (m_plen / 1000.0) / m_fft_win_size);
+    m_pf_size = ceilf(m_inputSampleRate * (m_plen / 1000.0) / (m_fft_win_size / 2));
 
     int num_bins = m_fft_win_size / 2 + 1;
 
@@ -126,15 +127,24 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size));
 
-    m_power = fftwf_alloc_real(m_fft_win_size);
-    m_fft = fftwf_alloc_complex(m_fft_win_size / 2 + 1);
-    m_plan = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_power, m_fft, FFTW_MEASURE);
+    m_fft = (fftwf_complex *) fftwf_malloc((m_fft_win_size / 2 + 1) * sizeof(fftwf_complex) );
+
+    // allocate two input windows
+    for (int i=0; i < 2; ++i) {
+        m_windowed[i] = (float *) fftwf_malloc(m_fft_win_size * sizeof(float));
+        m_plan[i] = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_windowed[i], m_fft, FFTW_PATIENT);
+    }
 
     m_probe_scale = m_pf_size * 2 * m_fft_win_size;
     m_min_probe = exp10f(m_min_pulse_power_dB / 10.0) * m_probe_scale;
 
     m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
     m_last_freq_bin = 1 + ceilf(m_max_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
+
+    m_num_windowed_samples[0] = 0;
+
+    // ugly hack to simplify accumulation in odd-phase sliding window
+    m_num_windowed_samples[1] = m_fft_win_size / 2;
     return true;
 }
 
@@ -263,6 +273,8 @@ FindPulseFD::process(const float *const *inputBuffers,
 {
     FeatureSet returnFeatures;
 
+    static bool odd_phase_window_is_bogus = true;
+
     if (m_stepSize == 0) {
 	cerr << "ERROR: FindPulseFD::process: "
 	     << "FindPulseFD has not been initialised"
@@ -270,122 +282,179 @@ FindPulseFD::process(const float *const *inputBuffers,
 	return returnFeatures;
     }
 
-    unsigned n_freq_bins = m_fft_win_size / 2;
-
     for (unsigned int i=0; i < m_blockSize; ++i) {
-        float sample_power = inputBuffers[0][i];
-        // float sample_power = sqrtf(inputBuffers[0][i] * inputBuffers[0][i] 
-        //                            + inputBuffers[1][i] * inputBuffers[1][i]);
-        m_power[m_num_power_samples] = sample_power * (1 - 2 * abs(m_num_power_samples - m_fft_win_size / 2) / m_fft_win_size);
-        if (m_num_power_samples++ == m_fft_win_size) {
-            m_num_power_samples = 0;
+        // append each weighted sample to each window
+        m_windowed[0][m_num_windowed_samples[0]] = inputBuffers[0][i] * (1 - 2 * abs(m_num_windowed_samples[0] - m_fft_win_size / 2) / m_fft_win_size);
+        m_windowed[1][m_num_windowed_samples[1]] = inputBuffers[0][i] - m_windowed[0][m_num_windowed_samples[0]];
 
-            fftwf_execute(m_plan);
+        for (unsigned short w=0; w < 2; ++w) {
+            ++m_num_windowed_samples[w];
 
-            for (unsigned int j = m_first_freq_bin; j < m_last_freq_bin; ++j) {
-                // replace each bin's real component with bin power
-                m_fft[j][0] = m_fft[j][0] * m_fft[j][0]
-                    + m_fft[j][1] * m_fft[j][1];
+            if (m_num_windowed_samples[w] == m_fft_win_size) {
+                m_num_windowed_samples[w] = 0;
+                if (w == 1 && odd_phase_window_is_bogus) {
+                    // discard the first odd phase window; it only had half the samples
+                    odd_phase_window_is_bogus = false;
+                    break;
+                }
 
-                // process power in each freq bin
-                m_freq_bin_pulse_finder[j].process(m_fft[j][0]);
-            }            
-            // Any frequency bin may have seen a pulse (local max).
-            // Looking across bins, for any
-            // contiguous sequence of pulse candidates, we accept as a
-            // pulse only the pulse candidate with the largest probe.
-            // This avoids reporting multiple pulses when a single pulse
-            // is smeared across adjacent frequency bins.
+                fftwf_execute(m_plan[w]);
 
-            unsigned int best_in_seq = 0;
-            float highest_probe_in_seq = 0;
-            bool in_seq = false;
-            for (unsigned int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
-                float bin_probe;
-                if (j < n_freq_bins && m_freq_bin_pulse_finder[j].got_pulse() 
-                    && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= m_min_probe) {
-                    // it's a pulse candidate
-                    if ((! in_seq) || (in_seq && (bin_probe > highest_probe_in_seq))) {
-                        highest_probe_in_seq = bin_probe;
-                        best_in_seq = j;
-                        in_seq = true;
-                    }
-                } else {
-                    // not a pulse candidate
-                    if (in_seq) {
-                        // dump the feature from the just-ended sequence
-                        // of pulse candidates
-                        Feature feature;
-                        feature.hasTimestamp = true;
-                        feature.hasDuration = false;
+                for (int j = m_first_freq_bin; j < m_last_freq_bin; ++j) {
+                    // replace each bin's real component with bin power
+                    m_fft[j][0] = m_fft[j][0] * m_fft[j][0]
+                        + m_fft[j][1] * m_fft[j][1];
 
-                        // The pulse timestamp is taken to be the centre of the fft window
+                    // process power in each freq bin
+                    m_freq_bin_pulse_finder[j].process(m_fft[j][0]);
+                }            
+                // Any frequency bin may have seen a pulse (local max).
+                // Ouput only the loudest pulse.
 
-                        feature.timestamp = timestamp +
-                            Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * 5 * m_pf_size / 2, (size_t) m_inputSampleRate);
-                        std::stringstream ss;
-                        ss.precision(3);
-                        // frequency is that of middle of bin
-                        ss << "freq: " << ((best_in_seq + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
-                           << " kHz; pwr: " << 10 * log10f(highest_probe_in_seq / m_probe_scale)
-                           << " dB";
-                        ss.precision(2);
-                        if (m_last_timestamp[best_in_seq].sec >= 0) {
-                            Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[best_in_seq];
-                            if (gap.sec < 1) {
-                                ss.precision(0);
-                                ss << "; Gap: " << gap.msec() << " ms";
-                            } else {
-                                ss.precision(1);
-                                ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " s";
-                            }
-                        }
-                        m_last_timestamp[best_in_seq] = feature.timestamp;
-                        feature.label = ss.str();
-                        returnFeatures[0].push_back(feature);
-                        in_seq = false;
+                int best = -1;
+                float highest_probe = 0;
+
+                for (int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
+                    float bin_probe;
+                    if (m_freq_bin_pulse_finder[j].got_pulse() 
+                        && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= m_min_probe
+                        && bin_probe > highest_probe) {
+                        highest_probe = bin_probe;
+                        best = j;
                     }
                 }
+                if (best >= 0) {
+                            // dump the feature
+                    Feature feature;
+                    feature.hasTimestamp = true;
+                    feature.hasDuration = false;
+                    
+                    // The pulse timestamp is taken to be the centre of the fft window
+                    
+                    feature.timestamp = timestamp +
+                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (3 * m_pf_size - 5) / 2, (size_t) m_inputSampleRate);
+                    std::stringstream ss;
+                    ss.precision(3);
+                    // frequency is that of middle of bin
+                    ss << "freq: " << ((best + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
+                       << " kHz; pwr: " << 10 * log10f(highest_probe / m_probe_scale)
+                       << " dB";
+                    ss.precision(2);
+                    if (m_last_timestamp[best].sec >= 0) {
+                        Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[best];
+                        if (gap.sec < 1) {
+                            ss.precision(0);
+                            ss << "; Gap: " << gap.msec() << " ms";
+                        } else {
+                            ss.precision(1);
+                            ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " s";
+                        }
+                    }
+                    m_last_timestamp[best] = feature.timestamp;
+                    feature.label = ss.str();
+                    returnFeatures[0].push_back(feature);
+                }
+
+                // VARIANT 1: output the loudest pulse from across each contiguous sequence of frequency bins 
+                // where pulses were detected
+
+                // Looking across bins, for any
+                // contiguous sequence of pulse candidates, we accept as a
+                // pulse only the pulse candidate with the largest probe.
+                // This avoids reporting multiple pulses when a single pulse
+                // is smeared across adjacent frequency bins.
+
+                // unsigned int best_in_seq = 0;
+                // float highest_probe_in_seq = 0;
+                // bool in_seq = false;
+                // for (unsigned int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
+                //     float bin_probe;
+                //     if (j < n_freq_bins && m_freq_bin_pulse_finder[j].got_pulse() 
+                //         && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= m_min_probe) {
+                //         // it's a pulse candidate
+                //         if ((! in_seq) || (in_seq && (bin_probe > highest_probe_in_seq))) {
+                //             highest_probe_in_seq = bin_probe;
+                //             best_in_seq = j;
+                //             in_seq = true;
+                //         }
+                //     } else {
+                //         // not a pulse candidate
+                // FIXME: won't process the final sequence if m_last_freq_bin < n_freq_bins
+                //         if (in_seq) {
+                //             // dump the feature from the just-ended sequence
+                //             // of pulse candidates
+                //             Feature feature;
+                //             feature.hasTimestamp = true;
+                //             feature.hasDuration = false;
+
+                //             // The pulse timestamp is taken to be the centre of the fft window
+
+                //             feature.timestamp = timestamp +
+                //                 Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (3 * m_pf_size - 5) / 2, (size_t) m_inputSampleRate);
+                //             std::stringstream ss;
+                //             ss.precision(3);
+                //             // frequency is that of middle of bin
+                //             ss << "freq: " << ((best_in_seq + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
+                //                << " kHz; pwr: " << 10 * log10f(highest_probe_in_seq / m_probe_scale)
+                //                << " dB";
+                //             ss.precision(2);
+                //             if (m_last_timestamp[best_in_seq].sec >= 0) {
+                //                 Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[best_in_seq];
+                //                 if (gap.sec < 1) {
+                //                     ss.precision(0);
+                //                     ss << "; Gap: " << gap.msec() << " ms";
+                //                 } else {
+                //                     ss.precision(1);
+                //                     ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " s";
+                //                 }
+                //             }
+                //             m_last_timestamp[best_in_seq] = feature.timestamp;
+                //             feature.label = ss.str();
+                //             returnFeatures[0].push_back(feature);
+                //             in_seq = false;
+                //         }
+                //     }
+                // }
+                // VARIANT 2: output a pulse in any bin where it is found
+                //
+                // for (unsigned int j = 1; j < n_freq_bins; ++j) {
+                //     float bin_probe;
+                //     if (m_freq_bin_pulse_finder[j].got_pulse() 
+                //         && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= m_min_probe) {
+                //         // it's a pulse candidate
+                //         // dump the feature from the just-ended sequence
+                //         // of pulse candidates
+                //         Feature feature;
+                //         feature.hasTimestamp = true;
+                //         feature.hasDuration = false;
+
+                //         // The pulse timestamp is taken to be the centre of the fft window
+
+                //         feature.timestamp = timestamp +
+                //             Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (0.5 + m_pf_size), (size_t) m_inputSampleRate);
+                //         std::stringstream ss;
+                //         ss.precision(3);
+                //         // frequency is that of middle of bin
+                //         ss << "freq: " << ((j + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
+                //            << " kHz; pwr: " << 10 * log10f(bin_probe / m_probe_scale)
+                //            << " dB";
+                //         ss.precision(2);
+                //         if (m_last_timestamp[j].sec >= 0) {
+                //             Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[j];
+                //             if (gap.sec < 1) {
+                //                 ss.precision(0);
+                //                 ss << "; Gap: " << gap.msec() << " ms";
+                //             } else {
+                //                 ss.precision(1);
+                //                 ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " s";
+                //             }
+                //         }
+                //         m_last_timestamp[j] = feature.timestamp;
+                //         feature.label = ss.str();
+                //         returnFeatures[0].push_back(feature);
+                //     }
+                // }
             }
-            // VERSION where we output a pulse in any bin where it is found
-            //
-            // for (unsigned int j = 1; j < n_freq_bins; ++j) {
-            //     float bin_probe;
-            //     if (m_freq_bin_pulse_finder[j].got_pulse() 
-            //         && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= m_min_probe) {
-            //         // it's a pulse candidate
-            //         // dump the feature from the just-ended sequence
-            //         // of pulse candidates
-            //         Feature feature;
-            //         feature.hasTimestamp = true;
-            //         feature.hasDuration = false;
-
-            //         // The pulse timestamp is taken to be the centre of the fft window
-
-            //         feature.timestamp = timestamp +
-            //             Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (0.5 + m_pf_size), (size_t) m_inputSampleRate);
-            //         std::stringstream ss;
-            //         ss.precision(3);
-            //         // frequency is that of middle of bin
-            //         ss << "freq: " << ((j + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
-            //            << " kHz; pwr: " << 10 * log10f(bin_probe / m_probe_scale)
-            //            << " dB";
-            //         ss.precision(2);
-            //         if (m_last_timestamp[j].sec >= 0) {
-            //             Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[j];
-            //             if (gap.sec < 1) {
-            //                 ss.precision(0);
-            //                 ss << "; Gap: " << gap.msec() << " ms";
-            //             } else {
-            //                 ss.precision(1);
-            //                 ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " s";
-            //             }
-            //         }
-            //         m_last_timestamp[j] = feature.timestamp;
-            //         feature.label = ss.str();
-            //         returnFeatures[0].push_back(feature);
-            //     }
-            // }
         }
     }
     return returnFeatures;
