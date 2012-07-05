@@ -21,7 +21,7 @@ PLUGIN_LIBRARY_NAME = lotek-plugins
 
 # Edit this to list one .o file for each .cpp file in your plugin project
 #
-PLUGIN_CODE_OBJECTS = FindPulseFD.o FindPulse.o FindPulseBatch.o AveragePower.o
+PLUGIN_CODE_OBJECTS = FindPulseFD.o FindPulseFDBatch.o FindPulse.o FindPulseBatch.o AveragePower.o
 
 # Edit this to the location of the Vamp plugin SDK, relative to your
 # project directory
@@ -44,6 +44,8 @@ $(PLUGIN): $(PLUGIN_CODE_OBJECTS) lotek-plugins.o
 lotek-plugins.o: $(PLUGIN_CODE_OBJECTS) lotek-plugins.cpp
 
 FindPulseFD.o: FindPulseFD.h PulseFinder.h
+
+FindPulseFDBatch.o: FindPulseFD.h PulseFinder.h
 
 FindPulse.o: FindPulse.h MovingAverager.h
 

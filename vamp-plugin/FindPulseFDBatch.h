@@ -8,7 +8,7 @@
     Centre for Digital Music, Queen Mary, University of London.
     Copyright 2006 Chris Cannam.
 
-    FindPulseFD.h
+    FindPulseFDBatch.h
     Copyright 2012 John Brzustowski
 
     Permission is hereby granted, free of charge, to any person
@@ -37,8 +37,8 @@
     authorization.
 */
 
-#ifndef _FIND_PULSEFD_PLUGIN_H_
-#define _FIND_PULSEFD_PLUGIN_H_
+#ifndef _FIND_PULSEFDBATCH_PLUGIN_H_
+#define _FIND_PULSEFDBATCH_PLUGIN_H_
 
 #include <boost/circular_buffer.hpp>
 #include "vamp-sdk/Plugin.h"
@@ -50,11 +50,11 @@
  * Look for pulses from Lotek tags - Frequency Domain version
 */
 
-class FindPulseFD : public Vamp::Plugin
+class FindPulseFDBatch : public Vamp::Plugin
 {
 public:
-    FindPulseFD(float inputSampleRate);
-    virtual ~FindPulseFD();
+    FindPulseFDBatch(float inputSampleRate);
+    virtual ~FindPulseFDBatch();
 
     bool initialise(size_t channels, size_t stepSize, size_t blockSize);
     void reset();
@@ -110,7 +110,6 @@ protected:
     bool m_have_fft_plan;
     int m_pf_size; // size of peak finder moving average window (in units of fft windows)
     float m_min_pulse_power; // minimum pulse power to be accepted (raw units)
-    std::vector < Vamp::RealTime > m_last_timestamp;
 
     int m_num_windowed_samples[2];  // number of samples put in m_windowed array since last fft; one for each phase window
     int m_first_freq_bin; // index of first frequency bin to monitor
@@ -120,4 +119,4 @@ protected:
 };
 
 
-#endif // _FIND_PULSEFD_PLUGIN_H_
+#endif // _FIND_PULSEFDBATCH_PLUGIN_H_

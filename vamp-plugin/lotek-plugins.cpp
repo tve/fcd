@@ -41,11 +41,13 @@
 #include "vamp-sdk/PluginAdapter.h"
 
 #include "FindPulseFD.h"
+#include "FindPulseFDBatch.h"
 #include "FindPulse.h"
 #include "FindPulseBatch.h"
 #include "AveragePower.h"
 
 static Vamp::PluginAdapter<FindPulseFD> findPulseFDAdapter;
+static Vamp::PluginAdapter<FindPulseFDBatch> findPulseFDBatchAdapter;
 static Vamp::PluginAdapter<FindPulse> findPulseAdapter;
 static Vamp::PluginAdapter<FindPulseBatch> findPulseBatchAdapter;
 static Vamp::PluginAdapter<AveragePower> averagePowerAdapter;
@@ -56,9 +58,10 @@ const VampPluginDescriptor *vampGetPluginDescriptor(unsigned int version,
 
     switch (index) {
     case  0: return findPulseFDAdapter.getDescriptor();
-    case  1: return findPulseAdapter.getDescriptor();
-    case  2: return findPulseBatchAdapter.getDescriptor();
-    case  3: return averagePowerAdapter.getDescriptor();
+    case  1: return findPulseFDBatchAdapter.getDescriptor();
+    case  2: return findPulseAdapter.getDescriptor();
+    case  3: return findPulseBatchAdapter.getDescriptor();
+    case  4: return averagePowerAdapter.getDescriptor();
     default: return 0;
     }
 }

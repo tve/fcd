@@ -8,7 +8,8 @@
     Centre for Digital Music, Queen Mary, University of London.
     Copyright 2006 Chris Cannam.
 
-    FindPulseFD.cpp - find pulses from Lotek tags - frequency domain
+    FindPulseFDBatch.cpp - find pulses from Lotek tags - frequency domain
+    (same as FindPulseFD except that it outputs data in bins, not labels)
     Copyright 2012 John Brzustowski
 
     Permission is hereby granted, free of charge, to any person
@@ -37,7 +38,7 @@
     authorization.
 */
 
-#include "FindPulseFD.h"
+#include "FindPulseFDBatch.h"
 
 using std::stringstream;
 using std::string;
@@ -48,20 +49,20 @@ using std::endl;
 #include <cmath>
 #include <sstream>
 
-FindPulseFD::FindPulseFD(float inputSampleRate) :
+FindPulseFDBatch::FindPulseFDBatch(float inputSampleRate) :
     Plugin(inputSampleRate),
     m_stepSize(0),
     m_blockSize(0),
-    m_plen(FindPulseFD::m_default_plen),
-    m_min_pulse_power_dB(FindPulseFD::m_default_min_pulse_power_dB),
-    m_fft_win_size(FindPulseFD::m_default_fft_win_size),
-    m_min_freq(FindPulseFD::m_default_min_freq),
-    m_max_freq(FindPulseFD::m_default_max_freq),
+    m_plen(FindPulseFDBatch::m_default_plen),
+    m_min_pulse_power_dB(FindPulseFDBatch::m_default_min_pulse_power_dB),
+    m_fft_win_size(FindPulseFDBatch::m_default_fft_win_size),
+    m_min_freq(FindPulseFDBatch::m_default_min_freq),
+    m_max_freq(FindPulseFDBatch::m_default_max_freq),
     m_have_fft_plan(false)
 {
 }
 
-FindPulseFD::~FindPulseFD()
+FindPulseFDBatch::~FindPulseFDBatch()
 {
     if (m_have_fft_plan) {
          fftwf_destroy_plan(m_plan[0]);
@@ -74,43 +75,43 @@ FindPulseFD::~FindPulseFD()
 }
 
 string
-FindPulseFD::getIdentifier() const
+FindPulseFDBatch::getIdentifier() const
 {
-    return "findpulseFD";
+    return "findpulsefdbatch";
 }
 
 string
-FindPulseFD::getName() const
+FindPulseFDBatch::getName() const
 {
-    return "Find Pulses in Frequency Domain";
+    return "Find Pulses in Frequency Domain (Batch)";
 }
 
 string
-FindPulseFD::getDescription() const
+FindPulseFDBatch::getDescription() const
 {
     return "Find pulses (e.g. from Lotek telemetry tags)";
 }
 
 string
-FindPulseFD::getMaker() const
+FindPulseFDBatch::getMaker() const
 {
     return "flightcalls.org jbrzusto@fastmail.fm";
 }
 
 int
-FindPulseFD::getPluginVersion() const
+FindPulseFDBatch::getPluginVersion() const
 {
     return 1;
 }
 
 string
-FindPulseFD::getCopyright() const
+FindPulseFDBatch::getCopyright() const
 {
     return "GPL version 2 or later";
 }
 
 bool
-FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
+FindPulseFDBatch::initialise(size_t channels, size_t stepSize, size_t blockSize)
 {
     if (channels < getMinChannelCount() ||
 	channels > getMaxChannelCount()) return false;
@@ -119,11 +120,8 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
     m_stepSize = stepSize;
     m_blockSize = blockSize;
 
-    m_pf_size = roundf(m_inputSampleRate * (m_plen / 1000.0) / (m_fft_win_size / 2));
-
+    m_pf_size = ceilf(m_inputSampleRate * (m_plen / 1000.0) / (m_fft_win_size / 2));
     int num_bins = m_fft_win_size / 2 + 1;
-
-    m_last_timestamp = std::vector < Vamp::RealTime > (num_bins, Vamp::RealTime(-1, 0));
 
     m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size));
 
@@ -135,7 +133,7 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
         m_plan[i] = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_windowed[i], m_fft, FFTW_PATIENT);
     }
 
-    m_probe_scale = m_pf_size * 2 * m_fft_win_size * m_fft_win_size;
+    m_probe_scale = m_pf_size * 2 * m_fft_win_size;
     m_min_probe = exp10f(m_min_pulse_power_dB / 10.0) * m_probe_scale;
 
     m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
@@ -149,12 +147,12 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
 }
 
 void
-FindPulseFD::reset()
+FindPulseFDBatch::reset()
 {
 }
 
-FindPulseFD::ParameterList
-FindPulseFD::getParameterDescriptors() const
+FindPulseFDBatch::ParameterList
+FindPulseFDBatch::getParameterDescriptors() const
 {
     ParameterList list;
 
@@ -165,7 +163,7 @@ FindPulseFD::getParameterDescriptors() const
     d.unit = "milliseconds";
     d.minValue = 0.1;
     d.maxValue = 50;
-    d.defaultValue = FindPulseFD::m_default_plen;
+    d.defaultValue = FindPulseFDBatch::m_default_plen;
     d.isQuantized = false;
     list.push_back(d);
 
@@ -175,7 +173,7 @@ FindPulseFD::getParameterDescriptors() const
     d.unit = "dB";
     d.minValue = -100;
     d.maxValue = 0;
-    d.defaultValue = FindPulseFD::m_default_min_pulse_power_dB;
+    d.defaultValue = FindPulseFDBatch::m_default_min_pulse_power_dB;
     d.isQuantized = false;
     list.push_back(d);
 
@@ -185,7 +183,7 @@ FindPulseFD::getParameterDescriptors() const
     d.unit = "samples";
     d.minValue = 10;
     d.maxValue = 1000;
-    d.defaultValue = FindPulseFD::m_default_fft_win_size;
+    d.defaultValue = FindPulseFDBatch::m_default_fft_win_size;
     d.isQuantized = true;
     d.quantizeStep = 1;
     list.push_back(d);
@@ -196,7 +194,7 @@ FindPulseFD::getParameterDescriptors() const
     d.unit = "kHz";
     d.minValue = 0;
     d.maxValue = 48;
-    d.defaultValue = FindPulseFD::m_default_min_freq;
+    d.defaultValue = FindPulseFDBatch::m_default_min_freq;
     d.isQuantized = false;
     list.push_back(d);
 
@@ -206,7 +204,7 @@ FindPulseFD::getParameterDescriptors() const
     d.unit = "kHz";
     d.minValue = 0;
     d.maxValue = 48;
-    d.defaultValue = FindPulseFD::m_default_max_freq;
+    d.defaultValue = FindPulseFDBatch::m_default_max_freq;
     d.isQuantized = false;
     list.push_back(d);
 
@@ -214,7 +212,7 @@ FindPulseFD::getParameterDescriptors() const
 }
 
 float
-FindPulseFD::getParameter(string id) const
+FindPulseFDBatch::getParameter(string id) const
 {
     if (id == "plen") {
         return m_plen;
@@ -231,24 +229,24 @@ FindPulseFD::getParameter(string id) const
 }
 
 void
-FindPulseFD::setParameter(string id, float value)
+FindPulseFDBatch::setParameter(string id, float value)
 {
     if (id == "plen") {
-        FindPulseFD::m_default_plen = m_plen = value;
+        FindPulseFDBatch::m_default_plen = m_plen = value;
     } else if (id == "minpower") {
-        FindPulseFD::m_default_min_pulse_power_dB = m_min_pulse_power_dB = value;
+        FindPulseFDBatch::m_default_min_pulse_power_dB = m_min_pulse_power_dB = value;
     } else if (id == "fftsize") {
-        FindPulseFD::m_default_fft_win_size = m_fft_win_size = value;
+        FindPulseFDBatch::m_default_fft_win_size = m_fft_win_size = value;
     } else if (id == "minfreq") {
-        FindPulseFD::m_default_min_freq = m_min_freq = value;
+        FindPulseFDBatch::m_default_min_freq = m_min_freq = value;
     } else if (id == "maxfreq") {
-        FindPulseFD::m_default_max_freq = m_max_freq = value;
+        FindPulseFDBatch::m_default_max_freq = m_max_freq = value;
     }
 }
 
 
-FindPulseFD::OutputList
-FindPulseFD::getOutputDescriptors() const
+FindPulseFDBatch::OutputList
+FindPulseFDBatch::getOutputDescriptors() const
 {
     OutputList list;
 
@@ -259,7 +257,7 @@ FindPulseFD::getOutputDescriptors() const
     zc.description = "The locations and features of pulses";
     zc.unit = "";
     zc.hasFixedBinCount = true;
-    zc.binCount = 0;
+    zc.binCount = 2;
     zc.sampleType = OutputDescriptor::VariableSampleRate;
     zc.sampleRate = m_inputSampleRate;
     list.push_back(zc);
@@ -267,8 +265,8 @@ FindPulseFD::getOutputDescriptors() const
     return list;
 }
 
-FindPulseFD::FeatureSet
-FindPulseFD::process(const float *const *inputBuffers,
+FindPulseFDBatch::FeatureSet
+FindPulseFDBatch::process(const float *const *inputBuffers,
                       Vamp::RealTime timestamp)
 {
     FeatureSet returnFeatures;
@@ -276,14 +274,15 @@ FindPulseFD::process(const float *const *inputBuffers,
     static bool odd_phase_window_is_bogus = true;
 
     if (m_stepSize == 0) {
-	cerr << "ERROR: FindPulseFD::process: "
-	     << "FindPulseFD has not been initialised"
+	cerr << "ERROR: FindPulseFDBatch::process: "
+	     << "FindPulseFDBatch has not been initialised"
 	     << endl;
 	return returnFeatures;
     }
 
     for (unsigned int i=0; i < m_blockSize; ++i) {
-        // append each weighted sample to each window
+        // append each weighted sample to each window 
+        // For Bartlett window, weights in even and odd phase windows sum to 1:
         m_windowed[0][m_num_windowed_samples[0]] = inputBuffers[0][i] * (1 - 2 * abs(m_num_windowed_samples[0] - m_fft_win_size / 2) / m_fft_win_size);
         m_windowed[1][m_num_windowed_samples[1]] = inputBuffers[0][i] - m_windowed[0][m_num_windowed_samples[0]];
 
@@ -330,28 +329,11 @@ FindPulseFD::process(const float *const *inputBuffers,
                     feature.hasDuration = false;
                     
                     // The pulse timestamp is taken to be the centre of the fft window
-                    
                     feature.timestamp = timestamp +
-                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((3 * m_pf_size - 3) / 2), (size_t) m_inputSampleRate);
-                    std::stringstream ss;
-                    ss.precision(3);
-                    // frequency is that of middle of bin
-                    ss << "freq: " << ((best + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
-                       << " kHz; pwr: " << 10 * log10f(highest_probe / m_probe_scale)
-                       << " dB";
-                    ss.precision(2);
-                    if (m_last_timestamp[best].sec >= 0) {
-                        Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[best];
-                        if (gap.sec < 1) {
-                            ss.precision(0);
-                            ss << "; Gap: " << gap.msec() << " ms";
-                        } else {
-                            ss.precision(1);
-                            ss << "; Gap: " << gap.sec + (double) gap.msec()/1000 << " s";
-                        }
-                    }
-                    m_last_timestamp[best] = feature.timestamp;
-                    feature.label = ss.str();
+                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (3 * m_pf_size - 5) / 2, (size_t) m_inputSampleRate);
+
+                    feature.values.push_back(((best + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000.0);
+                    feature.values.push_back(10 * log10f(highest_probe / m_probe_scale));
                     returnFeatures[0].push_back(feature);
                 }
             }
@@ -360,14 +342,14 @@ FindPulseFD::process(const float *const *inputBuffers,
     return returnFeatures;
 }
 
-FindPulseFD::FeatureSet
-FindPulseFD::getRemainingFeatures()
+FindPulseFDBatch::FeatureSet
+FindPulseFDBatch::getRemainingFeatures()
 {
     return FeatureSet();
 }
 
-float FindPulseFD::m_default_plen = 2.5; // milliseconds
-float FindPulseFD::m_default_min_pulse_power_dB = -45; // dB
-int FindPulseFD::m_default_fft_win_size = 96; // 0.5 milliseconds
-float FindPulseFD::m_default_min_freq = 0.0; // 0 kHz
-float FindPulseFD::m_default_max_freq = 12.0; // 12 kHz
+float FindPulseFDBatch::m_default_plen = 2.5; // milliseconds
+float FindPulseFDBatch::m_default_min_pulse_power_dB = -45; // dB
+int FindPulseFDBatch::m_default_fft_win_size = 96; // 0.5 milliseconds
+float FindPulseFDBatch::m_default_min_freq = 0.0; // 0 kHz
+float FindPulseFDBatch::m_default_max_freq = 12.0; // 12 kHz
