@@ -64,12 +64,13 @@ FindPulseFD::FindPulseFD(float inputSampleRate) :
 FindPulseFD::~FindPulseFD()
 {
     if (m_have_fft_plan) {
-         fftwf_destroy_plan(m_plan[0]);
-         fftwf_destroy_plan(m_plan[1]);
-         fftw_free(m_windowed[0]); 
-         fftw_free(m_windowed[1]); 
-         fftw_free(m_fft);
-         m_have_fft_plan = false;
+        for (int i=0; i < 4; ++i) {
+            fftwf_destroy_plan(m_plan[i]);
+            fftw_free(m_windowed[i]); 
+        }
+        fftw_free(m_fft[0]);
+        fftw_free(m_fft[1]);
+        m_have_fft_plan = false;
     }
 }
 
@@ -127,15 +128,16 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size));
 
-    m_fft = (fftwf_complex *) fftwf_malloc((m_fft_win_size / 2 + 1) * sizeof(fftwf_complex) );
+    for (int i=0; i < 2; ++i)
+        m_fft[i] = (fftwf_complex *) fftwf_malloc((m_fft_win_size / 2 + 1) * sizeof(fftwf_complex) );
 
-    // allocate two input windows
-    for (int i=0; i < 2; ++i) {
+    // allocate two input windows for each channel; for each channel, both phase windows use the same output array
+    for (int i=0; i < 4; ++i) {
         m_windowed[i] = (float *) fftwf_malloc(m_fft_win_size * sizeof(float));
-        m_plan[i] = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_windowed[i], m_fft, FFTW_PATIENT);
+        m_plan[i] = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_windowed[i], m_fft[i / 2], FFTW_PATIENT);
     }
 
-    m_probe_scale = m_pf_size * 2 * m_fft_win_size * m_fft_win_size / (M_PI * M_PI);
+    m_probe_scale = 2 * m_pf_size * 2 * m_fft_win_size * m_fft_win_size / (M_PI * M_PI);
     m_min_probe = exp10(m_min_pulse_power_dB / 10.0) * m_probe_scale;
 
     m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
@@ -286,6 +288,8 @@ FindPulseFD::process(const float *const *inputBuffers,
         // append each weighted sample to each window
         m_windowed[0][m_num_windowed_samples[0]] = inputBuffers[0][i] * (1 - 2 * abs(m_num_windowed_samples[0] - m_fft_win_size / 2) / m_fft_win_size);
         m_windowed[1][m_num_windowed_samples[1]] = inputBuffers[0][i] - m_windowed[0][m_num_windowed_samples[0]];
+        m_windowed[0 + 2][m_num_windowed_samples[0]] = inputBuffers[1][i] * (1 - 2 * abs(m_num_windowed_samples[0] - m_fft_win_size / 2) / m_fft_win_size);
+        m_windowed[1 + 2][m_num_windowed_samples[1]] = inputBuffers[1][i] - m_windowed[0 + 2][m_num_windowed_samples[0]];
 
         for (unsigned short w=0; w < 2; ++w) {
             ++m_num_windowed_samples[w];
@@ -299,14 +303,14 @@ FindPulseFD::process(const float *const *inputBuffers,
                 }
 
                 fftwf_execute(m_plan[w]);
+                fftwf_execute(m_plan[w + 2]);
 
                 for (int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
-                    // replace each bin's real component with bin power
-                    m_fft[j][0] = m_fft[j][0] * m_fft[j][0]
-                        + m_fft[j][1] * m_fft[j][1];
-
-                    // process power in each freq bin
-                    m_freq_bin_pulse_finder[j].process(m_fft[j][0]);
+                    // for each bin, process total powerr across both channels in that bin
+                    m_freq_bin_pulse_finder[j].process( m_fft[0][j][0] * m_fft[0][j][0] +
+                                                        m_fft[0][j][1] * m_fft[0][j][1] +
+                                                        m_fft[1][j][0] * m_fft[1][j][0] +
+                                                        m_fft[1][j][1] * m_fft[1][j][1]);
                 }            
                 // Any frequency bin may have seen a pulse (local max).
                 // Ouput only the loudest pulse, and only if it exceeds 
@@ -367,7 +371,7 @@ FindPulseFD::getRemainingFeatures()
 }
 
 float FindPulseFD::m_default_plen = 2.5; // milliseconds
-float FindPulseFD::m_default_min_pulse_power_dB = -45; // dB
-int FindPulseFD::m_default_fft_win_size = 96; // 0.5 milliseconds
-float FindPulseFD::m_default_min_freq = 0.0; // 0 kHz
+float FindPulseFD::m_default_min_pulse_power_dB = -55; // dB
+int FindPulseFD::m_default_fft_win_size = 24; // 0.5 milliseconds
+float FindPulseFD::m_default_min_freq = 2.0; // 2 kHz
 float FindPulseFD::m_default_max_freq = 12.0; // 12 kHz

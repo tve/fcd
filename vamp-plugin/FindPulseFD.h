@@ -60,8 +60,8 @@ public:
     void reset();
 
     InputDomain getInputDomain() const { return TimeDomain; }
-    size_t getMinChannelCount() const {return 1;}
-    size_t getMaxChannelCount() const {return 1;}
+    size_t getMinChannelCount() const {return 2;}
+    size_t getMaxChannelCount() const {return 2;}
     size_t getPreferredStepSize() const {return 8192;}
     size_t getPreferredBlockSize() const {return 8192;}
     std::string getIdentifier() const;
@@ -104,9 +104,9 @@ protected:
     // internal registers
     float m_probe_scale; // divisor to convert raw probe value to power
     float m_min_probe; // scaled value of m_min_pulse_power_dB
-    float *m_windowed[2]; // windowed data in time domain (one buffer for each phase of overlapping window sequence)
-    fftwf_complex *m_fft; // DFT of power
-    fftwf_plan m_plan[2]; // lazily generate a plan for both input phase windows
+    float *m_windowed[2 * 2]; // windowed data in time domain (one buffer for each phase of overlapping window sequence)
+    fftwf_complex *m_fft[2]; // DFT of power for each channel
+    fftwf_plan m_plan[2 * 2]; // lazily generate a plan for both input phase windows
     bool m_have_fft_plan;
     int m_pf_size; // size of peak finder moving average window (in units of fft windows)
     float m_min_pulse_power; // minimum pulse power to be accepted (raw units)
