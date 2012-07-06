@@ -135,11 +135,11 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
         m_plan[i] = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_windowed[i], m_fft, FFTW_PATIENT);
     }
 
-    m_probe_scale = m_pf_size * 2 * m_fft_win_size * m_fft_win_size;
-    m_min_probe = exp10f(m_min_pulse_power_dB / 10.0) * m_probe_scale;
+    m_probe_scale = m_pf_size * 2 * m_fft_win_size * m_fft_win_size / (M_PI * M_PI);
+    m_min_probe = exp10(m_min_pulse_power_dB / 10.0) * m_probe_scale;
 
     m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
-    m_last_freq_bin = 1 + ceilf(m_max_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
+    m_last_freq_bin =  ceilf(m_max_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
 
     m_num_windowed_samples[0] = 0;
 
@@ -300,7 +300,7 @@ FindPulseFD::process(const float *const *inputBuffers,
 
                 fftwf_execute(m_plan[w]);
 
-                for (int j = m_first_freq_bin; j < m_last_freq_bin; ++j) {
+                for (int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
                     // replace each bin's real component with bin power
                     m_fft[j][0] = m_fft[j][0] * m_fft[j][0]
                         + m_fft[j][1] * m_fft[j][1];
@@ -309,16 +309,16 @@ FindPulseFD::process(const float *const *inputBuffers,
                     m_freq_bin_pulse_finder[j].process(m_fft[j][0]);
                 }            
                 // Any frequency bin may have seen a pulse (local max).
-                // Ouput only the loudest pulse.
+                // Ouput only the loudest pulse, and only if it exceeds 
+                // the threshold
 
                 int best = -1;
-                float highest_probe = 0;
+                float highest_probe = m_min_probe;
 
                 for (int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
                     float bin_probe;
                     if (m_freq_bin_pulse_finder[j].got_pulse() 
-                        && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= m_min_probe
-                        && bin_probe > highest_probe) {
+                        && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= highest_probe ) {
                         highest_probe = bin_probe;
                         best = j;
                     }
@@ -332,12 +332,12 @@ FindPulseFD::process(const float *const *inputBuffers,
                     // The pulse timestamp is taken to be the centre of the fft window
                     
                     feature.timestamp = timestamp +
-                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((3 * m_pf_size - 3) / 2), (size_t) m_inputSampleRate);
+                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((5 * m_pf_size - 3) / 2), (size_t) m_inputSampleRate);
                     std::stringstream ss;
                     ss.precision(3);
                     // frequency is that of middle of bin
                     ss << "freq: " << ((best + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
-                       << " kHz; pwr: " << 10 * log10f(highest_probe / m_probe_scale)
+                       << " kHz; pwr: " << 10 * log10(highest_probe / m_probe_scale)
                        << " dB";
                     ss.precision(2);
                     if (m_last_timestamp[best].sec >= 0) {

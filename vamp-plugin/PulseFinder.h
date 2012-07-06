@@ -10,13 +10,13 @@
 
 // Pulsefinder: search an input sequence for pulses of width n, using this probe function:
 //
-//             +1|              ---- (n) ----
+//             +1|               ---- (n) ----
 //               |
 //               |
 //               |
 //              0|
 //               |
-//           -0.5| ---- (n) ----              ---- (n) ----
+//          -0.25| ---- (2n) ----              ---- (2n) ----
 //
 //             A pulse is flagged every time the probe function convolved with the input sequence
 //             reaches a maximum over a window of 2n+1 consecutive slots.  
@@ -29,7 +29,7 @@ class PulseFinder {
   PulseFinder (size_t n = 1) :
     m_pulse_width(n),
     m_sample_buf (3 * n),
-    m_probe_buf (2 * n + 1),
+    m_probe_buf (4* n + 1),
     m_probe_sum (0),
     m_max_probe_index (-1),
     m_got_pulse(false)
@@ -90,6 +90,8 @@ class PulseFinder {
 	}
       }
       if (m_max_probe_index == m_pulse_width) {
+	// the central value in the probe buffer is the maximum,
+	// so indicate we have a pulse.
 	m_got_pulse = true;
 	m_pulse_val = m_max_probe;
       }

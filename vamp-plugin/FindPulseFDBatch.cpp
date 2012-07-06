@@ -133,8 +133,8 @@ FindPulseFDBatch::initialise(size_t channels, size_t stepSize, size_t blockSize)
         m_plan[i] = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_windowed[i], m_fft, FFTW_PATIENT);
     }
 
-    m_probe_scale = m_pf_size * 2 * m_fft_win_size;
-    m_min_probe = exp10f(m_min_pulse_power_dB / 10.0) * m_probe_scale;
+    m_probe_scale = m_pf_size * 2 * m_fft_win_size / (M_PI * M_PI);
+    m_min_probe = exp10(m_min_pulse_power_dB / 10.0) * m_probe_scale;
 
     m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
     m_last_freq_bin = 1 + ceilf(m_max_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
@@ -333,7 +333,7 @@ FindPulseFDBatch::process(const float *const *inputBuffers,
                         Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (3 * m_pf_size - 5) / 2, (size_t) m_inputSampleRate);
 
                     feature.values.push_back(((best + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000.0);
-                    feature.values.push_back(10 * log10f(highest_probe / m_probe_scale));
+                    feature.values.push_back(10 * log10(highest_probe / m_probe_scale));
                     returnFeatures[0].push_back(feature);
                 }
             }
