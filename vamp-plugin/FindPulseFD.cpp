@@ -132,13 +132,10 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
         m_fft[i] = (fftwf_complex *) fftwf_malloc((m_fft_win_size / 2 + 1) * sizeof(fftwf_complex) );
 
     // allocate two input windows for each channel; for each channel, both phase windows use the same output array
-    for (int i=0; i < 4; ++i) {
+    for (unsigned i=0; i < 2 * m_channels; ++i) {
         m_windowed[i] = (float *) fftwf_malloc(m_fft_win_size * sizeof(float));
         m_plan[i] = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_windowed[i], m_fft[i / 2], FFTW_PATIENT);
     }
-
-    m_probe_scale = 2 * m_pf_size * 2 * m_fft_win_size * m_fft_win_size / (M_PI * M_PI);
-    m_min_probe = exp10(m_min_pulse_power_dB / 10.0) * m_probe_scale;
 
     m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
     m_last_freq_bin =  ceilf(m_max_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
@@ -147,6 +144,25 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     // ugly hack to simplify accumulation in odd-phase sliding window
     m_num_windowed_samples[1] = m_fft_win_size / 2;
+
+    // calculate coefficients for window function
+    m_window = std::vector < float > (m_fft_win_size);
+
+    // use Hamming window
+    m_win_s1 = m_win_s2 = 0.0;
+    for (int i=0; i < m_fft_win_size; ++i) {
+        m_window[i] = 0.54 - 0.46 * cos (2 * M_PI * i / m_fft_win_size);
+        m_win_s1 += m_window[i];
+        m_win_s2 += m_window[i] * m_window[i];
+    }
+
+    m_probe_scale = m_channels * m_pf_size * (m_win_s1 * m_win_s1 / 2);
+    m_min_probe = exp10(m_min_pulse_power_dB / 10.0) * m_probe_scale;
+
+    m_dcma[0] = MovingAverager < float, float > (5 * m_fft_win_size);
+    if (m_channels == 2)
+        m_dcma[1] = MovingAverager < float, float > (5 * m_fft_win_size);
+
     return true;
 }
 
@@ -285,11 +301,22 @@ FindPulseFD::process(const float *const *inputBuffers,
     }
 
     for (unsigned int i=0; i < m_blockSize; ++i) {
+        m_dcma[0].process(inputBuffers[0][i]);
+        if (m_channels == 2)
+            m_dcma[1].process(inputBuffers[1][i]);
+
+        if (! m_dcma[0].have_average())
+            continue;
+
         // append each weighted sample to each window
-        m_windowed[0][m_num_windowed_samples[0]] = inputBuffers[0][i] * (1 - 2 * abs(m_num_windowed_samples[0] - m_fft_win_size / 2) / m_fft_win_size);
-        m_windowed[1][m_num_windowed_samples[1]] = inputBuffers[0][i] - m_windowed[0][m_num_windowed_samples[0]];
-        m_windowed[0 + 2][m_num_windowed_samples[0]] = inputBuffers[1][i] * (1 - 2 * abs(m_num_windowed_samples[0] - m_fft_win_size / 2) / m_fft_win_size);
-        m_windowed[1 + 2][m_num_windowed_samples[1]] = inputBuffers[1][i] - m_windowed[0 + 2][m_num_windowed_samples[0]];
+        float avg = m_dcma[0].get_average();
+        m_windowed[0][m_num_windowed_samples[0]] = (inputBuffers[0][i] - avg) * m_window[m_num_windowed_samples[0]];
+        m_windowed[1][m_num_windowed_samples[1]] = (inputBuffers[0][i] - avg) * m_window[m_num_windowed_samples[1]];
+        if (m_channels == 2) {
+            avg = m_dcma[1].get_average();
+            m_windowed[0 + 2][m_num_windowed_samples[0]] = (inputBuffers[1][i] - avg) * m_window[m_num_windowed_samples[0]];
+            m_windowed[1 + 2][m_num_windowed_samples[1]] = (inputBuffers[1][i] - avg) * m_window[m_num_windowed_samples[1]];
+        }
 
         for (unsigned short w=0; w < 2; ++w) {
             ++m_num_windowed_samples[w];
@@ -303,14 +330,15 @@ FindPulseFD::process(const float *const *inputBuffers,
                 }
 
                 fftwf_execute(m_plan[w]);
-                fftwf_execute(m_plan[w + 2]);
+                if (m_channels == 2)
+                    fftwf_execute(m_plan[w + 2]);
 
                 for (int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
                     // for each bin, process total powerr across both channels in that bin
-                    m_freq_bin_pulse_finder[j].process( m_fft[0][j][0] * m_fft[0][j][0] +
-                                                        m_fft[0][j][1] * m_fft[0][j][1] +
-                                                        m_fft[1][j][0] * m_fft[1][j][0] +
-                                                        m_fft[1][j][1] * m_fft[1][j][1]);
+                    float pwr = m_fft[0][j][0] * m_fft[0][j][0] + m_fft[0][j][1] * m_fft[0][j][1];
+                    if (m_channels == 2)
+                        pwr += m_fft[1][j][0] * m_fft[1][j][0] + m_fft[1][j][1] * m_fft[1][j][1];
+                    m_freq_bin_pulse_finder[j].process(pwr);
                 }            
                 // Any frequency bin may have seen a pulse (local max).
                 // Ouput only the loudest pulse, and only if it exceeds 

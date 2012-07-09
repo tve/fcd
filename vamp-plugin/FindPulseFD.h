@@ -43,6 +43,7 @@
 #include <boost/circular_buffer.hpp>
 #include "vamp-sdk/Plugin.h"
 #include "PulseFinder.h"
+#include "MovingAverager.h"
 #include <complex>
 #include <fftw3.h>
 
@@ -60,7 +61,7 @@ public:
     void reset();
 
     InputDomain getInputDomain() const { return TimeDomain; }
-    size_t getMinChannelCount() const {return 2;}
+    size_t getMinChannelCount() const {return 1;}
     size_t getMaxChannelCount() const {return 2;}
     size_t getPreferredStepSize() const {return 8192;}
     size_t getPreferredBlockSize() const {return 8192;}
@@ -110,13 +111,19 @@ protected:
     bool m_have_fft_plan;
     int m_pf_size; // size of peak finder moving average window (in units of fft windows)
     float m_min_pulse_power; // minimum pulse power to be accepted (raw units)
-    std::vector < Vamp::RealTime > m_last_timestamp;
+    std::vector < Vamp::RealTime > m_last_timestamp; // timestamp of previous pulse in each frequency bin; for calculating gaps
+    std::vector < float > m_window; // windowing function for FFT
+    float m_win_s1; // sum of window weights
+    float m_win_s2; // sum of squares of window weights
+
 
     int m_num_windowed_samples[2];  // number of samples put in m_windowed array since last fft; one for each phase window
     int m_first_freq_bin; // index of first frequency bin to monitor
     int m_last_freq_bin; // index of last frequency bin to monitor
 
     std::vector < PulseFinder < float > > m_freq_bin_pulse_finder;
+
+    MovingAverager < float, float > m_dcma[2]; // moving averager for removing DC on each channel
 };
 
 
