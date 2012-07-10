@@ -16,7 +16,7 @@
 //               |
 //              0|
 //               |
-//          -0.25| ---- (2n) ----              ---- (2n) ----
+//          -0.25| ---- (4n) ----              ---- (4n) ----
 //
 //             A pulse is flagged every time the probe function convolved with the input sequence
 //             reaches a maximum over a window of 2n+1 consecutive slots.  
@@ -28,9 +28,9 @@ class PulseFinder {
  public:
   PulseFinder (size_t n = 1) :
     m_pulse_width(n),
-    m_2pw(2*n),
-    m_3pw(3*n),
-    m_sample_buf (5 * n),
+    m_4pw(2*n),
+    m_5pw(3*n),
+    m_sample_buf (9 * n),
     m_probe_buf (2* n + 1),
     m_probe_sum (0),
     m_max_probe_index (-1),
@@ -50,17 +50,17 @@ class PulseFinder {
     m_got_pulse = false;
 
     if (m_sample_buf.full())
-      m_probe_sum += 0.25 * m_sample_buf[0];  // the first sample is moving from the left negative zone out of the probe window
+      m_probe_sum += 0.125 * m_sample_buf[0];  // the first sample is moving from the left negative zone out of the probe window
 
     int n = m_sample_buf.size();
 
-    if (n >= m_2pw)
-      m_probe_sum += 1.25 * m_sample_buf[n - m_2pw]; // a sample is moving from the right negative zone to the central positive zone
-    if (n >= m_3pw)
-      m_probe_sum += -1.25 * m_sample_buf[n - m_3pw]; // a sample is moving from the central positive zone to the left negative zone
+    if (n >= m_4pw)
+      m_probe_sum += 1.125 * m_sample_buf[n - m_4pw]; // a sample is moving from the right negative zone to the central positive zone
+    if (n >= m_5pw)
+      m_probe_sum += -1.125 * m_sample_buf[n - m_5pw]; // a sample is moving from the central positive zone to the left negative zone
 
     // the new sample moves into the right negative zone
-    m_probe_sum += -0.25 * d;
+    m_probe_sum += -0.125 * d;
     m_sample_buf.push_back(d);
 
     if (m_sample_buf.full()) {
@@ -102,8 +102,8 @@ class PulseFinder {
       
  protected:
   int m_pulse_width;
-  int m_2pw;
-  int m_3pw;
+  int m_4pw;
+  int m_5pw;
   boost::circular_buffer < DATATYPE > m_sample_buf;
   boost::circular_buffer < DATATYPE > m_probe_buf;
   DATATYPE m_probe_sum;
