@@ -17,10 +17,10 @@
         modify, merge, publish, distribute, sublicense, and/or sell copies
         of the Software, and to permit persons to whom the Software is
         furnished to do so, subject to the following conditions:
-    
+
         The above copyright notice and this permission notice shall be
         included in all copies or substantial portions of the Software.
-    
+
         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
         EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
         MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -28,13 +28,13 @@
         ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
         CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
         WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-    
+
         Except as contained in this notice, the names of the Centre for
         Digital Music; Queen Mary, University of London; and Chris Cannam
         shall not be used in advertising or otherwise to promote the sale,
         use or other dealings in this Software without prior written
         authorization.
-    
+
     FindPulseFD.cpp - find pulses from Lotek tags - frequency domain
     Copyright 2012 John Brzustowski
 
@@ -92,30 +92,34 @@ protected:
     size_t m_channels;
     size_t m_stepSize;
     size_t m_blockSize;
-    
+
     // paramters
-    float m_plen;        // width of pulse we're trying to detect, in ms
-    float m_min_pulse_power_dB; // min power for pulse to be accepted
+    float m_plen;        // length of pulse we're trying to detect, in ms
+    float m_min_pulse_SNR_dB; // min SNR for pulse to be accepted in dB
     int m_fft_win_size;  // number of consecutive samples in non-overlapping FFT windows
+    int m_noise_win_size; // size of noise window on each side of pulse, in multiples of pulse length
+    int m_min_pulse_sep; // minimum separation between pulses, in multiples of pulse length
     float m_min_freq;  // only accept pulses from bins whose centre frequency is at least this
     float m_max_freq;  // only accept pulses from bins whose centre frequency is at most this
 
     // parameter defaults
-    static float m_default_plen;                   // width of pulse we're trying to detect, in ms
-    static float m_default_min_pulse_power_dB;     // min value of pulse power to be accepted
-    static int   m_default_fft_win_size;           // number of consecutive samples in non-overlapping FFT wi
-    static float m_default_min_freq;  // only accept pulses from bins whose centre frequency is at least this
-    static float m_default_max_freq;  // only accept pulses from bins whose centre frequency is at most this
+    static float m_default_plen;
+    static float m_default_min_pulse_SNR_dB;
+    static int   m_default_fft_win_size;
+    static int   m_default_noise_win_size;
+    static int   m_default_min_pulse_sep;
+    static float m_default_min_freq;
+    static float m_default_max_freq;
 
     // internal registers
     float m_probe_scale; // divisor to convert raw probe value to power
     float m_min_probe; // scaled value of m_min_pulse_power_dB
     float *m_windowed[2 * 2]; // windowed data in time domain (one buffer for each phase of overlapping window sequence)
     fftwf_complex *m_fft[2]; // DFT of power for each channel
-    fftwf_plan m_plan[2 * 2]; // lazily generate a plan for both input phase windows
-    bool m_have_fft_plan;
+    fftwf_plan m_plan[2 * 2]; // FFT plans for both input phase windows on each channel
+    bool m_have_fft_plan; // have FFT plans been generated?
     int m_pf_size; // size of peak finder moving average window (in units of fft windows)
-    float m_min_pulse_power; // minimum pulse power to be accepted (raw units)
+    float m_min_pulse_SNR; // minimum pulse power to be accepted (linear units)
     std::vector < Vamp::RealTime > m_last_timestamp; // timestamp of previous pulse in each frequency bin; for calculating gaps
     std::vector < float > m_window; // windowing function for FFT
     float m_win_s1; // sum of window weights

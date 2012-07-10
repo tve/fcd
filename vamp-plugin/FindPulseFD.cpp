@@ -57,11 +57,13 @@ FindPulseFD::FindPulseFD(float inputSampleRate) :
     Plugin(inputSampleRate),
     m_stepSize(0),
     m_blockSize(0),
-    m_plen(FindPulseFD::m_default_plen),
-    m_min_pulse_power_dB(FindPulseFD::m_default_min_pulse_power_dB),
-    m_fft_win_size(FindPulseFD::m_default_fft_win_size),
-    m_min_freq(FindPulseFD::m_default_min_freq),
-    m_max_freq(FindPulseFD::m_default_max_freq),
+    m_plen(m_default_plen),
+    m_min_pulse_SNR_dB (m_default_min_pulse_SNR_dB),
+    m_fft_win_size (m_default_fft_win_size),
+    m_noise_win_size (m_default_noise_win_size),
+    m_min_pulse_sep (m_default_min_pulse_sep),
+    m_min_freq (m_default_min_freq),
+    m_max_freq (m_default_max_freq),
     m_have_fft_plan(false)
 {
 }
@@ -131,7 +133,7 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     m_last_timestamp = std::vector < Vamp::RealTime > (num_bins, Vamp::RealTime(-1, 0));
 
-    m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size));
+    m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
 
     for (int i=0; i < 2; ++i)
         m_fft[i] = (fftwf_complex *) fftwf_malloc((m_fft_win_size / 2 + 1) * sizeof(fftwf_complex) );
@@ -142,8 +144,16 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
         m_plan[i] = fftwf_plan_dft_r2c_1d(m_fft_win_size, m_windowed[i], m_fft[i / 2], FFTW_PATIENT);
     }
 
-    m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
-    m_last_freq_bin =  ceilf(m_max_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size));
+    // cap frequency limits at Nyquist
+    if (m_min_freq > m_inputSampleRate / 2000)
+        m_min_freq = m_inputSampleRate / 2000;
+    if (m_max_freq > m_inputSampleRate / 2000)
+        m_max_freq = m_inputSampleRate / 2000;
+    
+    m_first_freq_bin = floorf(m_min_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size) + 0.5);
+    m_last_freq_bin =  floorf(m_max_freq * 1000.0 / (m_inputSampleRate / m_fft_win_size) - 0.5);
+    if (m_last_freq_bin < m_first_freq_bin)
+        m_last_freq_bin = m_first_freq_bin;
 
     m_num_windowed_samples[0] = 0;
 
@@ -161,8 +171,8 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
         m_win_s2 += m_window[i] * m_window[i];
     }
 
-    m_probe_scale = m_channels * m_pf_size * (m_win_s1 * m_win_s1 / 2);
-    m_min_probe = exp10(m_min_pulse_power_dB / 10.0) * m_probe_scale;
+    m_probe_scale = m_channels * (m_win_s1 * m_win_s1 / 2);
+    m_min_pulse_SNR = exp10(m_min_pulse_SNR_dB / 10.0);
 
     m_dcma[0] = MovingAverager < float, float > (5 * m_fft_win_size);
     if (m_channels == 2)
@@ -192,13 +202,13 @@ FindPulseFD::getParameterDescriptors() const
     d.isQuantized = false;
     list.push_back(d);
 
-    d.identifier = "minpower";
-    d.name = "Minimum Pulse Power";
-    d.description = "Minimum pulse power, in dB";
+    d.identifier = "minsnr";
+    d.name = "Minimum Pulse SNR";
+    d.description = "Minimum pulse signal-to-noise ratio, in dB";
     d.unit = "dB";
-    d.minValue = -100;
-    d.maxValue = 0;
-    d.defaultValue = FindPulseFD::m_default_min_pulse_power_dB;
+    d.minValue = 0;
+    d.maxValue = 96;
+    d.defaultValue = FindPulseFD::m_default_min_pulse_SNR_dB;
     d.isQuantized = false;
     list.push_back(d);
 
@@ -209,6 +219,28 @@ FindPulseFD::getParameterDescriptors() const
     d.minValue = 10;
     d.maxValue = 1000;
     d.defaultValue = FindPulseFD::m_default_fft_win_size;
+    d.isQuantized = true;
+    d.quantizeStep = 1;
+    list.push_back(d);
+
+    d.identifier = "noisesize";
+    d.name = "Size of noise window";
+    d.description = "Size of window on each side of signal that is used to estimate noise.  In multiples of signal pulse length.";
+    d.unit = "pulses";
+    d.minValue = 1;
+    d.maxValue = 100;
+    d.defaultValue = FindPulseFD::m_default_noise_win_size;
+    d.isQuantized = true;
+    d.quantizeStep = 1;
+    list.push_back(d);
+
+    d.identifier = "pulsesep";
+    d.name = "Minimum separation of pulses";
+    d.description = "Minimum separation between a pulse and adjacent pulses in order to be detected, in units of pulse length.";
+    d.unit = "pulses";
+    d.minValue = 1;
+    d.maxValue = 100;
+    d.defaultValue = FindPulseFD::m_default_min_pulse_sep;
     d.isQuantized = true;
     d.quantizeStep = 1;
     list.push_back(d);
@@ -241,10 +273,14 @@ FindPulseFD::getParameter(string id) const
 {
     if (id == "plen") {
         return m_plen;
-    } else if (id == "minpower") {
-        return m_min_pulse_power_dB;
+    } else if (id == "minsnr") {
+        return m_min_pulse_SNR_dB;
     } else if (id == "fftsize") {
         return m_fft_win_size;
+    } else if (id == "noisesize") {
+        return m_noise_win_size;
+    } else if (id == "pulsesep") {
+        return m_min_pulse_sep;
     } else if (id == "minfreq") {
         return m_min_freq;
     } else if (id == "maxfreq") {
@@ -258,10 +294,14 @@ FindPulseFD::setParameter(string id, float value)
 {
     if (id == "plen") {
         FindPulseFD::m_default_plen = m_plen = value;
-    } else if (id == "minpower") {
-        FindPulseFD::m_default_min_pulse_power_dB = m_min_pulse_power_dB = value;
+    } else if (id == "minsnr") {
+        FindPulseFD::m_default_min_pulse_SNR_dB = m_min_pulse_SNR_dB = value;
     } else if (id == "fftsize") {
         FindPulseFD::m_default_fft_win_size = m_fft_win_size = value;
+    } else if (id == "noisesize") {
+        FindPulseFD::m_default_noise_win_size = m_noise_win_size = value;
+    } else if (id == "pulsesep") {
+        FindPulseFD::m_default_min_pulse_sep = m_min_pulse_sep = value;
     } else if (id == "minfreq") {
         FindPulseFD::m_default_min_freq = m_min_freq = value;
     } else if (id == "maxfreq") {
@@ -339,24 +379,24 @@ FindPulseFD::process(const float *const *inputBuffers,
                     fftwf_execute(m_plan[w + 2]);
 
                 for (int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
-                    // for each bin, process total powerr across both channels in that bin
+                    // for each bin, process total power across both channels in that bin
                     float pwr = m_fft[0][j][0] * m_fft[0][j][0] + m_fft[0][j][1] * m_fft[0][j][1];
                     if (m_channels == 2)
                         pwr += m_fft[1][j][0] * m_fft[1][j][0] + m_fft[1][j][1] * m_fft[1][j][1];
                     m_freq_bin_pulse_finder[j].process(pwr);
                 }            
                 // Any frequency bin may have seen a pulse (local max).
-                // Ouput only the loudest pulse, and only if it exceeds 
-                // the threshold
+                // Ouput only the pulse with highest signal power whose SNR exceeds the threshold.
 
                 int best = -1;
-                float highest_probe = m_min_probe;
+                float highest_probe_signal = 0;
 
                 for (int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
                     float bin_probe;
                     if (m_freq_bin_pulse_finder[j].got_pulse() 
-                        && (bin_probe = m_freq_bin_pulse_finder[j].pulse_val()) >= highest_probe ) {
-                        highest_probe = bin_probe;
+                        && m_freq_bin_pulse_finder[j].pulse_SNR() >= m_min_pulse_SNR
+                        && (bin_probe = m_freq_bin_pulse_finder[j].pulse_signal()) >= highest_probe_signal ) {
+                        highest_probe_signal = bin_probe;
                         best = j;
                     }
                 }
@@ -369,12 +409,14 @@ FindPulseFD::process(const float *const *inputBuffers,
                     // The pulse timestamp is taken to be the centre of the fft window
                     
                     feature.timestamp = timestamp +
-                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (1 + 7 * m_pf_size) / 4.0, (size_t) m_inputSampleRate);
+                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((1 + m_noise_win_size + m_min_pulse_sep) * m_pf_size) / 2.0, (size_t) m_inputSampleRate);
                     std::stringstream ss;
                     ss.precision(3);
                     // frequency is that of middle of bin
                     ss << "freq: " << ((best + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
-                       << " kHz; pwr: " << 10 * log10(highest_probe / m_probe_scale)
+                       << " kHz; SNR: " << 10 * log10(m_freq_bin_pulse_finder[best].pulse_SNR())
+                       << " dB; sig: " << 10 * log10(m_freq_bin_pulse_finder[best].pulse_signal() / m_probe_scale)
+                       << " dB; noise: " << 10 * log10(m_freq_bin_pulse_finder[best].pulse_noise() / m_probe_scale)
                        << " dB";
                     ss.precision(2);
                     if (m_last_timestamp[best].sec >= 0) {
@@ -404,7 +446,9 @@ FindPulseFD::getRemainingFeatures()
 }
 
 float FindPulseFD::m_default_plen = 2.5; // milliseconds
-float FindPulseFD::m_default_min_pulse_power_dB = -55; // dB
-int FindPulseFD::m_default_fft_win_size = 24; // 0.5 milliseconds
+float FindPulseFD::m_default_min_pulse_SNR_dB = 3; // dB
+int FindPulseFD::m_default_fft_win_size = 24; // 0.5 milliseconds @ 48kHz
+int FindPulseFD::m_default_noise_win_size = 5; // pulse lengths
+int FindPulseFD::m_default_min_pulse_sep = 1; //pulse lengths
 float FindPulseFD::m_default_min_freq = 2.0; // 2 kHz
 float FindPulseFD::m_default_max_freq = 12.0; // 12 kHz
