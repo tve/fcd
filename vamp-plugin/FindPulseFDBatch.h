@@ -68,8 +68,8 @@ public:
     InputDomain getInputDomain() const { return TimeDomain; }
     size_t getMinChannelCount() const {return 1;}
     size_t getMaxChannelCount() const {return 2;}
-    size_t getPreferredStepSize() const {return 8192;}
-    size_t getPreferredBlockSize() const {return 8192;}
+    size_t getPreferredStepSize() const {return 1024;}
+    size_t getPreferredBlockSize() const {return 1024;}
     std::string getIdentifier() const;
     std::string getName() const;
     std::string getDescription() const;

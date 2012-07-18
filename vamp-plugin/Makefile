@@ -45,7 +45,7 @@ lotek-plugins.o: $(PLUGIN_CODE_OBJECTS) lotek-plugins.cpp
 
 FindPulseFD.o: FindPulseFD.h PulseFinder.h
 
-FindPulseFDBatch.o: FindPulseFD.h PulseFinder.h
+FindPulseFDBatch.o: FindPulseFDBatch.h PulseFinder.h
 
 FindPulse.o: FindPulse.h MovingAverager.h
 
