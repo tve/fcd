@@ -177,6 +177,7 @@ main(int argc, char **argv)
       case OPT_GET_FREQ:
 	if (FCD_RETCODE_OKAY != fcdAppGetFreq(&fcd, &freq)) {
 	  puts("Error: unable to get frequency for specified FCD.");
+	  fcdClose(&fcd);
 	  exit(1);
 	}
 	printf("%d\n", freq);
@@ -184,18 +185,21 @@ main(int argc, char **argv)
       case OPT_SET_FREQ:
 	if (FCD_RETCODE_OKAY != fcdAppSetFreq(&fcd, freq)) {
 	  puts("Error: unable to set frequency for specified FCD.");
+	  fcdClose(&fcd);
 	  exit(1);
 	}
 	break;
       case OPT_SET_FREQ_KHZ:
 	if (FCD_RETCODE_OKAY != fcdAppSetFreqkHz(&fcd, freq)) {
 	  puts("Error: unable to set frequency in kHz for specified FCD.");
+	  fcdClose(&fcd);
 	  exit(1);
 	}
 	break;
       case OPT_SET_DEFAULTS:
 	if (FCD_RETCODE_OKAY != fcdAppSetParamDefaults(&fcd)) {
 	  puts("Error: unable to set default filter and gain parameters for specified FCD.");
+	  fcdClose(&fcd);
 	  exit(1);
 	}
 	puts("Default gain and filtering parameters set.");
@@ -212,6 +216,7 @@ main(int argc, char **argv)
 	    printf("Error: unable to set parameter 0x%x to value 0x%x\n", parno, parval);
 	  }
 	}
+	fcdClose(&fcd);
 	exit(EXIT_SUCCESS);
 	break;
 
@@ -228,6 +233,7 @@ main(int argc, char **argv)
 	    }
 	    printf("0x%x 0x%x\n", parno, parval);
 	  }
+	  fcdClose(&fcd);
 	  exit(EXIT_SUCCESS);
 	}
 	break;
@@ -237,5 +243,6 @@ main(int argc, char **argv)
 	break;
       }
     }
+    fcdClose(&fcd);
     exit(EXIT_SUCCESS);
 }
