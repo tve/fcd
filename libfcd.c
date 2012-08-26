@@ -97,7 +97,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16
 
         return FCD_RETCODE_ERROR;
     }
-    hid_set_nonblocking(fcd->phd, 1);
+    hid_set_nonblocking(fcd->phd, 0);
     fcd->serialNum = curSerialNum;
     fcd->enumNum = curEnumNum;
     return FCD_RETCODE_OKAY;
