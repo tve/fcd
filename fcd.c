@@ -44,7 +44,8 @@ typedef enum {
   OPT_SET_FREQ	   = 's',
   OPT_SET_FREQ_KHZ = 'k',
   OPT_SET_PARAMS   = 'w',
-  OPT_GET_PARAMS   = 'r'
+  OPT_GET_PARAMS   = 'r',
+  OPT_QUIET        = 'q'
 } cmds_t;
 
 int
@@ -54,6 +55,7 @@ main(int argc, char **argv)
     cmds_t command = OPT_NONE;
     int serialNum = 0;
     int enumNum = 0;
+    int quiet = 0;
     uint32_t freq;
     fcdDesc fcd;
     int devOpen = 0;
@@ -70,6 +72,7 @@ main(int argc, char **argv)
 	{"setfreqkHz", 1, 0, OPT_SET_FREQ_KHZ},
 	{"setparams",  0, 0, OPT_SET_PARAMS},
 	{"getparams",  0, 0, OPT_SET_PARAMS},
+	{"quiet",      0, 0, OPT_QUIET},
 	{0, 0, 0, 0}
     };
 
@@ -77,7 +80,7 @@ main(int argc, char **argv)
 
     for (;;) {
 
-      c = getopt_long(argc, argv, "e:p:n:ldgs:k:wr",
+      c = getopt_long(argc, argv, "e:p:n:ldgs:k:wrq",
 		      long_options, NULL);
       if (c == -1 && have_opt)
 	break;
@@ -126,21 +129,27 @@ main(int argc, char **argv)
 	command = OPT_GET_PARAMS;
 	break;
 
+      case OPT_QUIET:
+	quiet = 1;
+	continue;
+	break;
+
       default:
 	printf("\nUsage: \n\n"
 	       "fcd -l   - list available funcube devices\n"
-	       "fcd [DEVSPEC] -d - set default parameters\n"
+	       "fcd [-q] [DEVSPEC] -d - set default parameters\n"
 	       "fcd [DEVSPEC] -g - get and print current frequency\n"
-	       "fcd [DEVSPEC] -s freq_Hz - set frequency in Hz\n"
-	       "fcd [DEVSPEC] -k freq_kHz - set frequency in kHz\n"
+	       "fcd [-q] [DEVSPEC] -s freq_Hz - set frequency in Hz\n"
+	       "fcd [-q] [DEVSPEC] -k freq_kHz - set frequency in kHz\n"
 	       "fcd [DEVSPEC] -r [P1 P2 ... Pk] read and print values of parameters P1 ... Pk, or all if none specified\n"
-	       "fcd [DEVSPEC] -w P1 V1 [P2 V2 ... Pk Vk] set values of parameter P1 to V1, P2 to V2, ... Pk to Vk\n"
+	       "fcd [-q] [DEVSPEC] -w P1 V1 [P2 V2 ... Pk Vk] set values of parameter P1 to V1, P2 to V2, ... Pk to Vk\n"
 	       "\n  e.g. fcd -p 0001:0003:02 -k 166380 -g -w 0xf 3\n\n"
 	       "where [DEVSPEC] chooses a funcube like so:\n\n"
 	       "   <blank>: use the first funcube found\n"
 	       "   -e n: use the nth funcube found, with n=0 being the first\n"
 	       "   -p <path>: use the usb path as shown by fcd -l; e.g. fcd -p 0001:001c:02\n"
 	       "   -n s: use the device with serial number 's'; (NOT YET AVAILABLE IN FCD FIRMWARE)\n"
+	       "Option '-q' prevents fcd from printing output.\n"
 	       "Parameters P1..Pk and their values V1..Vk  are specified as integers in decimal or hex'\n"
 	       "Parameters are numbered from 0 for LNA_GAIN to 15 for IF_GAIN6 - see libfcd.h.\n"
 	       "Parameter values are as they appear in the ENUMs in libfcd.h\n"
@@ -168,7 +177,7 @@ main(int argc, char **argv)
 	break;
       }
       if (!devOpen && FCD_RETCODE_OKAY != fcdOpen(&fcd, serialNum, enumNum, usbPath)) {
-	puts("Error: unable to open specified FCD.");
+	if (!quiet) puts("Error: unable to open specified FCD.");
 	exit(1);
       }
       devOpen = 1;
@@ -184,36 +193,36 @@ main(int argc, char **argv)
 	break;
       case OPT_SET_FREQ:
 	if (FCD_RETCODE_OKAY != fcdAppSetFreq(&fcd, freq)) {
-	  puts("Error: unable to set frequency for specified FCD.");
+	  if (!quiet) puts("Error: unable to set frequency for specified FCD.");
 	  fcdClose(&fcd);
 	  exit(1);
 	}
 	break;
       case OPT_SET_FREQ_KHZ:
 	if (FCD_RETCODE_OKAY != fcdAppSetFreqkHz(&fcd, freq)) {
-	  puts("Error: unable to set frequency in kHz for specified FCD.");
+	  if (!quiet) puts("Error: unable to set frequency in kHz for specified FCD.");
 	  fcdClose(&fcd);
 	  exit(1);
 	}
 	break;
       case OPT_SET_DEFAULTS:
 	if (FCD_RETCODE_OKAY != fcdAppSetParamDefaults(&fcd)) {
-	  puts("Error: unable to set default filter and gain parameters for specified FCD.");
+	  if (!quiet) puts("Error: unable to set default filter and gain parameters for specified FCD.");
 	  fcdClose(&fcd);
 	  exit(1);
 	}
-	puts("Default gain and filtering parameters set.");
+	if (!quiet) puts("Default gain and filtering parameters set.");
 	break;
       case OPT_SET_PARAMS:
 	while (optind < argc) {
 	  uint8_t parno = (uint8_t) strtol(argv[optind++], 0, 0);
 	  if (optind >= argc) {
-	    printf("Error: missing value for parameter 0x%x\n", parno);
+	    if (!quiet) printf("Error: missing value for parameter 0x%x\n", parno);
 	    exit(1);
 	  }
 	  uint8_t parval = (uint8_t) strtol(argv[optind++], 0, 0);
 	  if (FCD_RETCODE_OKAY != fcdAppSetParam(&fcd, FCD_CMD_APP_FIRST_SET_CMD + parno, &parval, sizeof(parval))) {
-	    printf("Error: unable to set parameter 0x%x to value 0x%x\n", parno, parval);
+	    if (!quiet) printf("Error: unable to set parameter 0x%x to value 0x%x\n", parno, parval);
 	  }
 	}
 	fcdClose(&fcd);
