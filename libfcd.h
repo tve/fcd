@@ -69,6 +69,11 @@ typedef enum {
 extern "C" {
 #endif
 
+/* hidapi read timeout parameteqrs */
+
+#define WRAPPED_HID_READ_SINGLE_TIMEOUT 10 // milliseconds
+#define WRAPPED_HID_READ_MAX_COUNT 10 // number of times to try a read
+
 /* Application functions */
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t serialNum, uint16_t enumNum, const char *usbPath);
 EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd);

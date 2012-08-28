@@ -39,6 +39,24 @@ typedef int BOOL;
 const unsigned short _usVID=0x04D8;  /*!< USB vendor ID. */
 const unsigned short _usPID=0xFB56;  /*!< USB product ID. */
 
+#define WRAPPED_HID_READ(dev, data, length) \
+  { \
+     int _ii_; \
+     for (_ii_= WRAPPED_HID_READ_MAX_COUNT; _ii_ > 0; --_ii_) {		\
+        int rv = hid_read_timeout(dev, data, length, WRAPPED_HID_READ_SINGLE_TIMEOUT); \
+        if (rv > 0) \
+          break; \
+        if (rv < 0) {				\
+  	    fprintf (stderr, "Got error in hid_read\n");  \
+            return FCD_RETCODE_ERROR; \
+        } \
+     } \
+     if (_ii_ == 0) {		  \
+  	fprintf (stderr, "Got too many timeouts in hid_read\n");  \
+        return FCD_RETCODE_ERROR; \
+     } \
+  }
+
 /** \brief Open FCD device.
   * \param fcd Pointer to a pre-allocated FCD device descriptor, whose fields will be filled by this function.
   * \param serialNum serial number of device to open; 0 means ignore serial number and use enumNum
@@ -149,7 +167,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD
     aucBufOut[1] = FCD_CMD_BL_QUERY;
     hid_write(fcd->phd, aucBufOut, 65);
     memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-    hid_read(fcd->phd, aucBufIn, 65);
+    WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
     /* first check status bytes then check which mode */
     if (aucBufIn[0]==FCD_CMD_BL_QUERY && aucBufIn[1]==1) {
@@ -195,7 +213,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd,
     aucBufOut[1] = FCD_CMD_BL_QUERY;
     hid_write(fcd->phd, aucBufOut, 65);
     memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-    hid_read(fcd->phd, aucBufIn, 65);
+    WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
     /* first check status bytes then check which mode */
     if (aucBufIn[0]==FCD_CMD_BL_QUERY && aucBufIn[1]==1) {
@@ -376,7 +394,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd)
     aucBufOut[1] = FCD_CMD_BL_ERASE;
     hid_write(fcd->phd, aucBufOut, 65);
     memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-    hid_read(fcd->phd, aucBufIn, 65);
+    WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
     if (aucBufIn[0]==FCD_CMD_BL_ERASE && aucBufIn[1]==1)
         return FCD_RETCODE_OKAY;
@@ -415,7 +433,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *
     aucBufOut[1] = FCD_CMD_BL_GET_BYTE_ADDR_RANGE;
     hid_write(fcd->phd, aucBufOut, 65);
     memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-    hid_read(fcd->phd, aucBufIn, 65);
+    WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
     if (aucBufIn[0]!=FCD_CMD_BL_GET_BYTE_ADDR_RANGE || aucBufIn[1]!=1)
     {
@@ -442,7 +460,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *
     aucBufOut[5] = ((unsigned char)(u32AddrStart>>24));
     hid_write(fcd->phd, aucBufOut, 65);
     memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-    hid_read(fcd->phd, aucBufIn, 65);
+    WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
     if (aucBufIn[0]!=FCD_CMD_BL_SET_BYTE_ADDR || aucBufIn[1]!=1)
     {
@@ -458,7 +476,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *
 
         hid_write(fcd->phd, aucBufOut, 65);
         memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-        hid_read(fcd->phd, aucBufIn, 65);
+        WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
         if (aucBufIn[0]!=FCD_CMD_BL_WRITE_FLASH_BLOCK || aucBufIn[1]!=1)
         {
@@ -501,7 +519,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc 
     aucBufOut[1] = FCD_CMD_BL_GET_BYTE_ADDR_RANGE;
     hid_write(fcd->phd, aucBufOut, 65);
     memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-    hid_read(fcd->phd, aucBufIn, 65);
+    WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
     if (aucBufIn[0]!=FCD_CMD_BL_GET_BYTE_ADDR_RANGE || aucBufIn[1]!=1)
     {
@@ -529,7 +547,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc 
     aucBufOut[5] = ((unsigned char)(u32AddrStart>>24));
     hid_write(fcd->phd, aucBufOut, 65);
     memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-    hid_read(fcd->phd, aucBufIn, 65);
+    WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
     if (aucBufIn[0]!=FCD_CMD_BL_SET_BYTE_ADDR || aucBufIn[1]!=1)
     {
@@ -543,7 +561,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc 
     {
         hid_write(fcd->phd, aucBufOut, 65);
         memset(aucBufIn, 0xCC, 65); // Clear out the response buffer
-        hid_read(fcd->phd, aucBufIn, 65);
+        WRAPPED_HID_READ(fcd->phd, aucBufIn, 65);
 
         if (aucBufIn[0]!=FCD_CMD_BL_READ_FLASH_BLOCK || aucBufIn[1]!=1)
         {
@@ -595,14 +613,15 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParam(fcdDesc *fcd,
 
     /* we must read after each write in order to empty FCD/HID buffer */
     memset(aucBufIn,0xCC,65); // Clear out the response buffer
-    hid_read(fcd->phd,aucBufIn,65);
+    WRAPPED_HID_READ(fcd->phd,aucBufIn,65);
 
     /* Check the response, if OK return FCD_MODE_APP */
     if (aucBufIn[0]==u8Cmd && aucBufIn[1]==1) {
-        return FCD_RETCODE_OKAY;
+      return FCD_RETCODE_OKAY;
     }
 
     /* Response did not contain the expected bytes */
+    fprintf (stderr, "AppSetParam: returned response invalid.\n");
     return FCD_RETCODE_ERROR;
 
 }
@@ -641,7 +660,7 @@ EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd,
     hid_write(fcd->phd,aucBufOut,65);
 
     memset(aucBufIn,0xCC,65); // Clear out the response buffer
-    hid_read(fcd->phd,aucBufIn,65);
+    WRAPPED_HID_READ(fcd->phd,aucBufIn,65);
     /* Copy return data to output buffer (even if cmd exec failed) */
     memcpy(pu8Data,aucBufIn+2,u8len);
 
