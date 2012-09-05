@@ -19,6 +19,10 @@
 #
 PLUGIN_LIBRARY_NAME = lotek-plugins
 
+# Where the plugin library should be installed:
+
+PLUGIN_INSTALL_DIR = ~/vamp
+
 # Edit this to list one .o file for each .cpp file in your plugin project
 #
 PLUGIN_CODE_OBJECTS = FindPulseFD.o FindPulseFDBatch.o FindPulse.o FindPulseBatch.o AveragePower.o
@@ -31,8 +35,7 @@ VAMP_SDK_LIB_DIR = /usr/local/lib
 
 ##  Uncomment these for Linux using the standard tools:
 
-##CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -g3
-CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -O2
+CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -O3 -mcpu=cortex-a8 -mfpu=neon -ftree-vectorize -mfloat-abi=softfp -ffast-math -fsingle-precision-constant
 PLUGIN_EXT = .so
 PLUGIN = $(PLUGIN_LIBRARY_NAME)$(PLUGIN_EXT)
 LDFLAGS = -shared -Wl,-soname=$(PLUGIN) $(VAMP_SDK_LIB_DIR)/libvamp-sdk.a -lfftw3f -Wl,--version-script=vamp-plugin.map
@@ -55,4 +58,7 @@ AveragePower.o: AveragePower.h MovingAverager.h
 
 clean:
 	rm -f *.o
+
+install: $(PLUGIN)
+	cp -f $(PLUGIN) $(PLUGIN_INSTALL_DIR)
 
