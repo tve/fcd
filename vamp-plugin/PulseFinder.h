@@ -108,9 +108,9 @@ class PulseFinder {
 	// the location of the max will change
 	if (m_max_probe_index == 0) {
 	  // the max was shifted out so rescan
-	  m_max_probe_index = m_probe_signal_buf.capacity() - 1;
+	  m_max_probe_index = m_probe_signal_buf.size() - 1;
 	  m_max_probe_SNR = snr;
-	  for (int i = m_probe_signal_buf.capacity() - 2; i >= 0; --i) {
+	  for (int i = m_probe_signal_buf.size() - 2; i >= 0; --i) {
 	    snr = SNR(m_probe_signal_buf[i], m_probe_noise_buf[i]);
 	    if (snr > m_max_probe_SNR) {
 	      m_max_probe_index = i;
