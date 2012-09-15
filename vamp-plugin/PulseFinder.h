@@ -89,6 +89,12 @@ class PulseFinder {
     m_noise += m_mult_noise * d;
     m_sample_buf.push_back(d);
 
+    // in case of cumulative errors, m_signal or m_noise might be negative.
+    // fix this!
+
+    m_noise = std::max(0.0, m_noise);
+    m_signal = std::max(0.0, m_signal);
+
     if (m_sample_buf.full()) {
       // we have a full probe value; push it into the probe buffer
       // and recalculate the buffer maximum
