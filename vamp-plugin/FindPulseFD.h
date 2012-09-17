@@ -51,6 +51,7 @@
 #include "MovingAverager.h"
 #include <complex>
 #include <fftw3.h>
+#include <boost/circular_buffer.hpp>
 
 /**
  * Look for pulses from Lotek tags - Frequency Domain version
@@ -93,8 +94,9 @@ protected:
     size_t m_stepSize;
     size_t m_blockSize;
     
-    // paramters
+    // parameters
     float m_plen;        // length of pulse we're trying to detect, in ms
+    int m_plen_in_samples; // length of pulse, measured in samples
     float m_min_pulse_SNR_dB; // min SNR for pulse to be accepted in dB
     int m_fft_win_size;  // number of consecutive samples in non-overlapping FFT windows
     int m_noise_win_size; // size of noise window on each side of pulse, in multiples of pulse length
@@ -125,6 +127,11 @@ protected:
     float m_win_s1; // sum of window weights
     float m_win_s2; // sum of squares of window weights
 
+    // the following members are used to calculate a finer estimate of dfreq once a pulse has been found
+    float *m_windowed_fine[2]; // windowed samples
+    boost::circular_buffer < float > m_sample_buf[2]; // ring buffer of time domain samples from each channel
+    fftwf_plan m_plan_fine[2]; // FFT plans for pulse samples on each channel
+    fftwf_complex *m_fft_fine[2]; // DFT output from pulse samples
 
     int m_num_windowed_samples[2];  // number of samples put in m_windowed array since last fft; one for each phase window
     int m_first_freq_bin; // index of first frequency bin to monitor

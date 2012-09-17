@@ -127,7 +127,9 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
     m_stepSize = stepSize;
     m_blockSize = blockSize;
 
-    m_pf_size = roundf(m_inputSampleRate * (m_plen / 1000.0) / (m_fft_win_size / 2));
+    m_plen_in_samples = (m_plen / 1000.0) * m_inputSampleRate;
+
+    m_pf_size = roundf(m_plen_in_samples / (m_fft_win_size / 2));
 
     int num_bins = m_fft_win_size / 2 + 1;
 
@@ -135,6 +137,27 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
 
+    // allocate time-domain sample buffers for each channel which are large enough to contain
+    // the samples for a pulse when it has been detected.  Because pulses are not
+    // detected until the sliding window determines them to be maximal in the
+    // frequency domain, we need to keep a rather long window.
+
+    int buf_size = m_fft_win_size * ((1 + m_noise_win_size + m_min_pulse_sep) * m_pf_size) / 2.0; // takes us back to centre of pulse from current sample
+    buf_size += m_plen_in_samples / 2.0; // takes us back a further half pulse width to the start of the pulse
+
+    for (int i=0; i < 2; ++i) 
+        m_sample_buf[i] = boost::circular_buffer < float > (round(buf_size));
+
+    // allocate windowed sample buffers, fft output buffers and plans
+    // for finer dfreq estimates based on pulse samples
+
+    for (int i=0; i < 2; ++i) {
+        m_windowed_fine[i] = (float *) fftwf_malloc(m_plen_in_samples * sizeof(float));
+        m_fft_fine[i] = (fftwf_complex *) fftwf_malloc((m_plen_in_samples / 2 + 1) * sizeof(fftwf_complex));
+        m_plan_fine[i] = fftwf_plan_dft_r2c_1d(m_plen_in_samples, m_windowed_fine[i], m_fft_fine[i], FFTW_PATIENT);
+    }
+
+    // allocate fft output buffers for pulse finding
     for (int i=0; i < 2; ++i)
         m_fft[i] = (fftwf_complex *) fftwf_malloc((m_fft_win_size / 2 + 1) * sizeof(fftwf_complex) );
 
@@ -252,7 +275,7 @@ FindPulseFD::getParameterDescriptors() const
     d.description = "Minimum frequency by which tag differs from receiver, in kHz";
     d.unit = "kHz";
     d.minValue = 0;
-    d.maxValue = 48;
+    d.maxValue = m_inputSampleRate / 2000;
     d.defaultValue = FindPulseFD::m_default_min_freq;
     d.isQuantized = false;
     list.push_back(d);
@@ -262,7 +285,7 @@ FindPulseFD::getParameterDescriptors() const
     d.description = "Maximum frequency by which tag differs from receiver, in kHz";
     d.unit = "kHz";
     d.minValue = 0;
-    d.maxValue = 48;
+    d.maxValue = m_inputSampleRate / 2000;
     d.defaultValue = FindPulseFD::m_default_max_freq;
     d.isQuantized = false;
     list.push_back(d);
@@ -347,12 +370,16 @@ FindPulseFD::process(const float *const *inputBuffers,
 
     for (unsigned int i=0; i < m_blockSize; ++i) {
         m_dcma[0].process(inputBuffers[0][i]);
-        if (m_channels == 2)
+        m_sample_buf[0].push_back(inputBuffers[0][i]);
+
+        if (m_channels == 2) {
             m_dcma[1].process(inputBuffers[1][i]);
+            m_sample_buf[1].push_back(inputBuffers[1][i]);
+        }
 
         if (! m_dcma[0].have_average())
             continue;
-
+        
         // append each weighted sample to each window
         float avg = m_dcma[0].get_average();
         m_windowed[0][m_num_windowed_samples[0]] = (inputBuffers[0][i] - avg) * m_window[m_num_windowed_samples[0]];
@@ -410,14 +437,47 @@ FindPulseFD::process(const float *const *inputBuffers,
                     
                     feature.timestamp = timestamp +
                         Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((1 + m_noise_win_size + m_min_pulse_sep) * m_pf_size) / 2.0, (size_t) m_inputSampleRate);
+                    // compute a finer estimate of pulse offset frequency
+                    
+                    for (unsigned i = 0; i < m_channels; ++i ) {
+                        // copy samples from ring buffer to fft input buffer
+                        boost::circular_buffer < float > :: iterator b = m_sample_buf[i].begin();
+                        for (int j = 0; j < m_plen_in_samples; ++j, ++b)
+                            m_windowed_fine[i][j] = (float) *b;
+                        // perform fft
+                        fftwf_execute(m_plan_fine[i]);
+                    }
+
+                    // among those frequency bins covered by the
+                    // current coarse estimate of pulse frequency,
+                    // find the max power
+
+                    // int bin_low = std::max(1, (best - 1) * m_plen_in_samples / m_fft_win_size);
+                    // int bin_high = std::min(m_plen_in_samples / 2, (best + 1) * m_plen_in_samples / m_fft_win_size);
+
+                    int bin_low = 1;
+                    int bin_high = m_plen_in_samples / 2;
+
+                    float max_power = 0.0;
+                    int max_bin = -1;
+                    for (int j = bin_low; j < bin_high; ++j) {
+                        float pwr = m_fft_fine[0][j][0] * m_fft_fine[0][j][0] + m_fft_fine[0][j][1] * m_fft_fine[0][j][1];
+                        if (m_channels == 2)
+                            pwr += m_fft_fine[1][j][0] * m_fft_fine[1][j][0] + m_fft_fine[1][j][1] * m_fft_fine[1][j][1];
+                        if (pwr > max_power) {
+                            max_power = pwr;
+                            max_bin = j;
+                        }
+                    }
+
                     std::stringstream ss;
-                    ss.precision(3);
+                    ss.precision(4);
                     // frequency is that of middle of bin
                     ss << "freq: " << ((best + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000
                        << " kHz; SNR: " << 10 * log10(m_freq_bin_pulse_finder[best].pulse_SNR())
                        << " dB; sig: " << 10 * log10(m_freq_bin_pulse_finder[best].pulse_signal() / m_probe_scale)
                        << " dB; noise: " << 10 * log10(m_freq_bin_pulse_finder[best].pulse_noise() / m_probe_scale)
-                       << " dB";
+                       << " dB; finefreq: " << ((max_bin + 0.5) * ((float) m_inputSampleRate / m_plen_in_samples)) / 1000;
                     ss.precision(2);
                     if (m_last_timestamp[best].sec >= 0) {
                         Vamp::RealTime gap =  feature.timestamp - m_last_timestamp[best];
