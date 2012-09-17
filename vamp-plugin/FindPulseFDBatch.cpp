@@ -114,7 +114,11 @@ FindPulseFDBatch::FindPulseFDBatch(float inputSampleRate) :
     m_have_fft_plan(false)
 {
     // silently fail if wisdom cannot be found
-    (void) fftwf_import_wisdom_from_filename(fftw_wisdom_filename);
+    FILE *f = fopen(fftw_wisdom_filename, "r");
+    if (f) {
+        (void) fftwf_import_wisdom_from_file(f);
+        fclose(f);
+    }
 }
 
 FindPulseFDBatch::~FindPulseFDBatch()
@@ -129,7 +133,11 @@ FindPulseFDBatch::~FindPulseFDBatch()
         m_have_fft_plan = false;
     }
     // silently fail if we can't export wisdom
-    (void) fftwf_export_wisdom_to_filename(fftw_wisdom_filename);
+    FILE *f = fopen(fftw_wisdom_filename, "wb");
+    if (f) {
+        (void) fftwf_export_wisdom_to_file(f);
+        fclose(f);
+    }
 }
 
 string
