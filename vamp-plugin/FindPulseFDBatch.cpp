@@ -51,8 +51,54 @@ using std::vector;
 using std::cerr;
 using std::endl;
 
-#include <cmath>
-#include <sstream>
+const char * FindPulseFDBatch::fftw_wisdom_filename = "./fftw_wisdom.dat";
+
+// slightly modified from Audacity 2.0.1's src/FreqWindow.cpp:
+
+float
+FindPulseFDBatch::CubicMaximize(float y0, float y1, float y2, float y3)
+{
+   // Find coefficients of cubic
+
+   float a, b, c;
+
+   a = y0 / -6.0 + y1 / 2.0 - y2 / 2.0 + y3 / 6.0;
+   b = y0 - 5.0 * y1 / 2.0 + 2.0 * y2 - y3 / 2.0;
+   c = -11.0 * y0 / 6.0 + 3.0 * y1 - 3.0 * y2 / 2.0 + y3 / 3.0;
+
+   // Take derivative
+
+   float da, db, dc;
+
+   da = 3 * a;
+   db = 2 * b;
+   dc = c;
+
+   // Find zeroes of derivative using quadratic equation
+
+   float discriminant = db * db - 4 * da * dc;
+   if (discriminant < 0.0)
+      return float(-1.0);              // error
+
+   float x1 = (-db + sqrt(discriminant)) / (2 * da);
+   float x2 = (-db - sqrt(discriminant)) / (2 * da);
+
+   // The one which corresponds to a local _maximum_ in the
+   // cubic is the one we want - the one with a negative
+   // second derivative
+
+   float dda = 2 * da;
+   float ddb = db;
+
+   if (dda * x1 + ddb < 0)
+   {
+      return x1;
+   }
+   else
+   {
+      return x2;
+   }
+}
 
 FindPulseFDBatch::FindPulseFDBatch(float inputSampleRate) :
     Plugin(inputSampleRate),
@@ -67,6 +113,8 @@ FindPulseFDBatch::FindPulseFDBatch(float inputSampleRate) :
     m_max_freq (m_default_max_freq),
     m_have_fft_plan(false)
 {
+    // silently fail if wisdom cannot be found
+    (void) fftwf_import_wisdom_from_filename(fftw_wisdom_filename);
 }
 
 FindPulseFDBatch::~FindPulseFDBatch()
@@ -80,6 +128,8 @@ FindPulseFDBatch::~FindPulseFDBatch()
         fftw_free(m_fft[1]);
         m_have_fft_plan = false;
     }
+    // silently fail if we can't export wisdom
+    (void) fftwf_export_wisdom_to_filename(fftw_wisdom_filename);
 }
 
 string
@@ -128,12 +178,35 @@ FindPulseFDBatch::initialise(size_t channels, size_t stepSize, size_t blockSize)
     m_stepSize = stepSize;
     m_blockSize = blockSize;
 
-    m_pf_size = roundf(m_inputSampleRate * (m_plen / 1000.0) / (m_fft_win_size / 2));
+    m_plen_in_samples = (m_plen / 1000.0) * m_inputSampleRate;
+
+    m_pf_size = roundf(m_plen_in_samples / (m_fft_win_size / 2));
 
     int num_bins = m_fft_win_size / 2 + 1;
 
     m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
 
+    // allocate time-domain sample buffers for each channel which are large enough to contain
+    // the samples for a pulse when it has been detected.  Because pulses are not
+    // detected until the sliding window determines them to be maximal in the
+    // frequency domain, we need to keep a rather long window.
+
+    int buf_size = m_fft_win_size * ((1 + m_noise_win_size + m_min_pulse_sep) * m_pf_size) / 2.0; // takes us back to centre of pulse from current sample
+    buf_size += m_plen_in_samples / 2.0; // takes us back a further half pulse width to the start of the pulse
+
+    for (int i=0; i < 2; ++i) 
+        m_sample_buf[i] = boost::circular_buffer < float > (round(buf_size));
+
+    // allocate windowed sample buffers, fft output buffers and plans
+    // for finer dfreq estimates based on pulse samples
+
+    for (int i=0; i < 2; ++i) {
+        m_windowed_fine[i] = (float *) fftwf_malloc(m_plen_in_samples * sizeof(float));
+        m_fft_fine[i] = (fftwf_complex *) fftwf_malloc((m_plen_in_samples / 2 + 1) * sizeof(fftwf_complex));
+        m_plan_fine[i] = fftwf_plan_dft_r2c_1d(m_plen_in_samples, m_windowed_fine[i], m_fft_fine[i], FFTW_PATIENT);
+    }
+
+    // allocate fft output buffers for pulse finding
     for (int i=0; i < 2; ++i)
         m_fft[i] = (fftwf_complex *) fftwf_malloc((m_fft_win_size / 2 + 1) * sizeof(fftwf_complex) );
 
@@ -194,7 +267,7 @@ FindPulseFDBatch::getParameterDescriptors() const
 
     ParameterDescriptor d;
     d.identifier = "plen";
-    d.name = "Pulse Length";
+    d.name = "Pulse Length (unit: milliseconds)";
     d.description = "Duration of a transmitted pulse in milliseconds";
     d.unit = "milliseconds";
     d.minValue = 0.1;
@@ -204,8 +277,8 @@ FindPulseFDBatch::getParameterDescriptors() const
     list.push_back(d);
 
     d.identifier = "minsnr";
-    d.name = "Minimum Pulse SNR";
-    d.description = "Minimum pulse signal-to-noise ratio, in dB";
+    d.name = "Minimum Pulse SNR (unit: dB)";
+    d.description = "Minimum pulse signal-to-noise ratio";
     d.unit = "dB";
     d.minValue = 0;
     d.maxValue = 96;
@@ -214,7 +287,7 @@ FindPulseFDBatch::getParameterDescriptors() const
     list.push_back(d);
 
     d.identifier = "fftsize";
-    d.name = "Size of FFT window";
+    d.name = "Size of FFT window (unit: samples)";
     d.description = "The number of samples in each window for which an FFT is computed.  Windows are non-overlapping.  A window of 96 samples for 96kHz sampling means one FFT calculated each millisecond";
     d.unit = "samples";
     d.minValue = 10;
@@ -225,7 +298,7 @@ FindPulseFDBatch::getParameterDescriptors() const
     list.push_back(d);
 
     d.identifier = "noisesize";
-    d.name = "Size of noise window";
+    d.name = "Size of noise window (unit: pulse length)";
     d.description = "Size of window on each side of signal that is used to estimate noise.  In multiples of signal pulse length.";
     d.unit = "pulses";
     d.minValue = 1;
@@ -236,7 +309,7 @@ FindPulseFDBatch::getParameterDescriptors() const
     list.push_back(d);
 
     d.identifier = "pulsesep";
-    d.name = "Minimum separation of pulses";
+    d.name = "Minimum separation of pulses (unit: pulse length)";
     d.description = "Minimum separation between a pulse and adjacent pulses in order to be detected, in units of pulse length.";
     d.unit = "pulses";
     d.minValue = 1;
@@ -247,21 +320,21 @@ FindPulseFDBatch::getParameterDescriptors() const
     list.push_back(d);
 
     d.identifier = "minfreq";
-    d.name = "Minimum Tag Offset Frequency";
+    d.name = "Minimum Tag Offset Frequency (unit: kHz)";
     d.description = "Minimum frequency by which tag differs from receiver, in kHz";
     d.unit = "kHz";
     d.minValue = 0;
-    d.maxValue = 48;
+    d.maxValue = m_inputSampleRate / 2000;
     d.defaultValue = FindPulseFDBatch::m_default_min_freq;
     d.isQuantized = false;
     list.push_back(d);
 
     d.identifier = "maxfreq";
-    d.name = "Maximum Tag Offset Frequency";
+    d.name = "Maximum Tag Offset Frequency (unit: kHz)";
     d.description = "Maximum frequency by which tag differs from receiver, in kHz";
     d.unit = "kHz";
     d.minValue = 0;
-    d.maxValue = 48;
+    d.maxValue = m_inputSampleRate / 2000;
     d.defaultValue = FindPulseFDBatch::m_default_max_freq;
     d.isQuantized = false;
     list.push_back(d);
@@ -346,8 +419,12 @@ FindPulseFDBatch::process(const float *const *inputBuffers,
 
     for (unsigned int i=0; i < m_blockSize; ++i) {
         m_dcma[0].process(inputBuffers[0][i]);
-        if (m_channels == 2)
+        m_sample_buf[0].push_back(inputBuffers[0][i]);
+
+        if (m_channels == 2) {
             m_dcma[1].process(inputBuffers[1][i]);
+            m_sample_buf[1].push_back(inputBuffers[1][i]);
+        }
 
         if (! m_dcma[0].have_average())
             continue;
@@ -409,7 +486,56 @@ FindPulseFDBatch::process(const float *const *inputBuffers,
                     
                     feature.timestamp = timestamp +
                         Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((1 + m_noise_win_size + m_min_pulse_sep) * m_pf_size) / 2.0, (size_t) m_inputSampleRate);
-                    feature.values.push_back(((best + 0.5) * ((float) m_inputSampleRate / m_fft_win_size)) / 1000.0);
+                    // compute a finer estimate of pulse offset frequency
+                    
+                    for (unsigned i = 0; i < m_channels; ++i ) {
+                        // copy samples from ring buffer to fft input buffer
+                        boost::circular_buffer < float > :: iterator b = m_sample_buf[i].begin();
+                        for (int j = 0; j < m_plen_in_samples; ++j, ++b)
+                            m_windowed_fine[i][j] = (float) *b;
+                        // perform fft
+                        fftwf_execute(m_plan_fine[i]);
+                    }
+
+                    // among those frequency bins covered by the
+                    // current coarse estimate of pulse frequency,
+                    // find the max power
+
+                    int bin_low = std::max(1, (best - 1) * m_plen_in_samples / m_fft_win_size);
+                    int bin_high = std::min(m_plen_in_samples / 2, (best + 1) * m_plen_in_samples / m_fft_win_size);
+
+                    // int bin_low = 1;
+                    // int bin_high = m_plen_in_samples / 2;
+
+                    float max_power = 0.0;
+                    int max_bin = -1;
+                    for (int j = bin_low; j < bin_high; ++j) {
+                        float pwr = m_fft_fine[0][j][0] * m_fft_fine[0][j][0] + m_fft_fine[0][j][1] * m_fft_fine[0][j][1];
+                        if (m_channels == 2)
+                            pwr += m_fft_fine[1][j][0] * m_fft_fine[1][j][0] + m_fft_fine[1][j][1] * m_fft_fine[1][j][1];
+                        if (pwr > max_power) {
+                            max_power = pwr;
+                            max_bin = j;
+                        }
+                    }
+
+                    // use a cubic estimator to find the peak frequency estimate using nearby bins
+                    bin_low = std::max(1, std::min(m_plen_in_samples / 2 - 4, max_bin - 2));  // avoid the DC bin
+                    
+                    float bin_est = -1.0;
+                    if (bin_low + 4 <= m_plen_in_samples / 2) {
+                        float pwr[4];
+                        for (int j = bin_low; j < bin_low + 4; ++j) {
+                            pwr[j - bin_low] = m_fft_fine[0][j][0] * m_fft_fine[0][j][0] + m_fft_fine[0][j][1] * m_fft_fine[0][j][1];
+                            if (m_channels == 2)
+                                pwr[j - bin_low] += m_fft_fine[1][j][0] * m_fft_fine[1][j][0] + m_fft_fine[1][j][1] * m_fft_fine[1][j][1];
+                        }
+                        bin_est = bin_low + CubicMaximize(pwr[0], pwr[1], pwr[2], pwr[3]);
+                    }
+                    if (bin_est < 0)
+                        bin_est = max_bin;
+
+                    feature.values.push_back((bin_est * ((float) m_inputSampleRate / m_plen_in_samples)) / 1000.0);
                     feature.values.push_back(10 * log10(m_freq_bin_pulse_finder[best].pulse_signal() / m_probe_scale));
                     feature.values.push_back(10 * log10(m_freq_bin_pulse_finder[best].pulse_noise() / m_probe_scale));
                     returnFeatures[0].push_back(feature);
@@ -432,4 +558,4 @@ int FindPulseFDBatch::m_default_fft_win_size = 24; // 0.5 milliseconds @ 48kHz
 int FindPulseFDBatch::m_default_noise_win_size = 5; // pulse lengths
 int FindPulseFDBatch::m_default_min_pulse_sep = 1; //pulse lengths
 float FindPulseFDBatch::m_default_min_freq = 2.0; // 2 kHz
-float FindPulseFDBatch::m_default_max_freq = 12.0; // 12 kHz
+float FindPulseFDBatch::m_default_max_freq = 24.0; // 24 kHz

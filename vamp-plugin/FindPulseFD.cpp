@@ -54,7 +54,8 @@ const char * FindPulseFD::fftw_wisdom_filename = "./fftw_wisdom.dat";
 
 // slightly modified from Audacity 2.0.1's src/FreqWindow.cpp:
 
-float CubicMaximize(float y0, float y1, float y2, float y3)
+float 
+FindPulseFD::CubicMaximize(float y0, float y1, float y2, float y3)
 {
    // Find coefficients of cubic
 
@@ -534,23 +535,6 @@ FindPulseFD::process(const float *const *inputBuffers,
                     }
                     if (bin_est < 0)
                         bin_est = max_bin;
-
-                    // multiple weighting version:
-                    // bin_high = std::min(m_plen_in_samples / 2, max_bin + 2);
-                    
-                    // float power_sum = 0.0;
-                    // float bin_est = 0.0;
-                    // for (int j=bin_low; j < bin_high; ++j) {
-                    //     float pwr = m_fft_fine[0][j][0] * m_fft_fine[0][j][0] + m_fft_fine[0][j][1] * m_fft_fine[0][j][1];
-                    //     if (m_channels == 2)
-                    //         pwr += m_fft_fine[1][j][0] * m_fft_fine[1][j][0] + m_fft_fine[1][j][1] * m_fft_fine[1][j][1];
-                    //     power_sum += pwr;
-                    //     bin_est += pwr * j;
-                    // }
-                    // if (power_sum > 0)
-                    //     bin_est /= power_sum;
-                    // else
-                    //     bin_est = max_bin;  // just in case
 
                     std::stringstream ss;
                     ss.precision(3);

@@ -62,6 +62,8 @@
 class FindPulseFD : public Vamp::Plugin
 {
 public:
+    static float CubicMaximize(float y0, float y1, float y2, float y3);
+
     FindPulseFD(float inputSampleRate);
     virtual ~FindPulseFD();
 
