@@ -52,6 +52,8 @@
 #include <complex>
 #include <fftw3.h>
 #include <boost/circular_buffer.hpp>
+#include <cmath>
+#include <sstream>
 
 /**
  * Look for pulses from Lotek tags - Frequency Domain version
@@ -143,6 +145,8 @@ protected:
     std::vector < PulseFinder < float > > m_freq_bin_pulse_finder;
 
     MovingAverager < float, float > m_dcma[2]; // moving averager for removing DC on each channel
+
+    static const char * fftw_wisdom_filename;
 };
 
 
