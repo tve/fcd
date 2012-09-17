@@ -21,7 +21,7 @@ PLUGIN_LIBRARY_NAME = lotek-plugins
 
 # Where the plugin library should be installed:
 
-PLUGIN_INSTALL_DIR = ~/vamp
+PLUGIN_INSTALL_DIR = ~/.vamp
 
 # Edit this to list one .o file for each .cpp file in your plugin project
 #
