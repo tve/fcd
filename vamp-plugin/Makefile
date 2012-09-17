@@ -33,7 +33,7 @@ PLUGIN_CODE_OBJECTS = FindPulseFD.o FindPulseFDBatch.o FindPulse.o FindPulseBatc
 VAMP_SDK_INCLUDE_DIR = /usr/local/include/
 VAMP_SDK_LIB_DIR = /usr/local/lib
 
-CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -O2
+CXXFLAGS = -I$(VAMP_SDK_INCLUDE_DIR) -Wall -fPIC -O3 -ffast-math -fsingle-precision-constant -ftree-vectorize
 PLUGIN_EXT = .so
 PLUGIN = $(PLUGIN_LIBRARY_NAME)$(PLUGIN_EXT)
 LDFLAGS = -shared -Wl,-soname=$(PLUGIN) $(VAMP_SDK_LIB_DIR)/libvamp-sdk.a -lfftw3f -Wl,--version-script=vamp-plugin.map
