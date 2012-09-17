@@ -68,8 +68,8 @@ public:
     InputDomain getInputDomain() const { return TimeDomain; }
     size_t getMinChannelCount() const {return 1;}
     size_t getMaxChannelCount() const {return 2;}
-    size_t getPreferredStepSize() const {return 8192;}
-    size_t getPreferredBlockSize() const {return 8192;}
+    size_t getPreferredStepSize() const {return 1024;}
+    size_t getPreferredBlockSize() const {return 1024;}
     std::string getIdentifier() const;
     std::string getName() const;
     std::string getDescription() const;
@@ -92,7 +92,7 @@ protected:
     size_t m_channels;
     size_t m_stepSize;
     size_t m_blockSize;
-
+    
     // paramters
     float m_plen;        // length of pulse we're trying to detect, in ms
     float m_min_pulse_SNR_dB; // min SNR for pulse to be accepted in dB
@@ -129,6 +129,9 @@ protected:
     int m_num_windowed_samples[2];  // number of samples put in m_windowed array since last fft; one for each phase window
     int m_first_freq_bin; // index of first frequency bin to monitor
     int m_last_freq_bin; // index of last frequency bin to monitor
+
+    bool m_odd_phase_window_is_bogus; // keep track of whether we're on the first odd-phase window, which has only half
+    // the data and so is not used
 
     std::vector < PulseFinder < float > > m_freq_bin_pulse_finder;
 

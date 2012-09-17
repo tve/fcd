@@ -178,6 +178,8 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
     if (m_channels == 2)
         m_dcma[1] = MovingAverager < float, float > (5 * m_fft_win_size);
 
+    m_odd_phase_window_is_bogus = true;
+
     return true;
 }
 
@@ -336,8 +338,6 @@ FindPulseFD::process(const float *const *inputBuffers,
 {
     FeatureSet returnFeatures;
 
-    static bool odd_phase_window_is_bogus = true;
-
     if (m_stepSize == 0) {
 	cerr << "ERROR: FindPulseFD::process: "
 	     << "FindPulseFD has not been initialised"
@@ -368,9 +368,9 @@ FindPulseFD::process(const float *const *inputBuffers,
 
             if (m_num_windowed_samples[w] == m_fft_win_size) {
                 m_num_windowed_samples[w] = 0;
-                if (w == 1 && odd_phase_window_is_bogus) {
+                if (w == 1 && m_odd_phase_window_is_bogus) {
                     // discard the first odd phase window; it only had half the samples
-                    odd_phase_window_is_bogus = false;
+                    m_odd_phase_window_is_bogus = false;
                     break;
                 }
 
