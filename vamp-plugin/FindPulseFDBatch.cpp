@@ -432,4 +432,4 @@ int FindPulseFDBatch::m_default_fft_win_size = 24; // 0.5 milliseconds @ 48kHz
 int FindPulseFDBatch::m_default_noise_win_size = 5; // pulse lengths
 int FindPulseFDBatch::m_default_min_pulse_sep = 1; //pulse lengths
 float FindPulseFDBatch::m_default_min_freq = 2.0; // 2 kHz
-float FindPulseFDBatch::m_default_max_freq = 24.0; // 12 kHz
+float FindPulseFDBatch::m_default_max_freq = 24.0; // 24 kHz
