@@ -52,10 +52,10 @@ using std::endl;
 
 const char * FindPulseFD::fftw_wisdom_filename = "./fftw_wisdom.dat";
 
-// slightly modified from Audacity 2.0.1's src/FreqWindow.cpp:
+// from Audacity 2.0.1's src/FreqWindow.cpp:
 
 float 
-FindPulseFD::CubicMaximize(float y0, float y1, float y2, float y3)
+FindPulseFD::cubicMaximize(float y0, float y1, float y2, float y3)
 {
    // Find coefficients of cubic
 
@@ -97,6 +97,39 @@ FindPulseFD::CubicMaximize(float y0, float y1, float y2, float y3)
    {
       return x2;
    }
+}
+
+// from Audacity 2.0.1's src/FreqWindow.cpp:
+
+float 
+FindPulseFD::cubicInterpolate(float y0, float y1, float y2, float y3, float x)
+{
+   float a, b, c, d;
+
+   a = y0 / -6.0 + y1 / 2.0 - y2 / 2.0 + y3 / 6.0;
+   b = y0 - 5.0 * y1 / 2.0 + 2.0 * y2 - y3 / 2.0;
+   c = -11.0 * y0 / 6.0 + 3.0 * y1 - 3.0 * y2 / 2.0 + y3 / 3.0;
+   d = y0;
+
+   float xx = x * x;
+   float xxx = xx * x;
+
+   return (a * xxx + b * xx + c * x + d);
+};
+
+void
+FindPulseFD::generateWindowingCoefficients(int N, std::vector < float > &window, float &win_sum, float &win_sumsq)
+{
+    // generate a Hamming window of size N in float array window, 
+    // Return sums and sums of squares of window coefficients in win_sum and win_sumsq.
+
+    window = std::vector < float > (N);
+    win_sum = win_sumsq = 0.0;
+    for (int i = 0; i < N; ++i) {
+        window[i] = 0.54 - 0.46 * cosf(2 * M_PI * i / (N - 1));
+        win_sum += window[i];
+        win_sumsq += window[i] * window[i];
+    }
 }
 
 FindPulseFD::FindPulseFD(float inputSampleRate) :
@@ -241,16 +274,14 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
     // ugly hack to simplify accumulation in odd-phase sliding window
     m_num_windowed_samples[1] = m_fft_win_size / 2;
 
-    // calculate coefficients for window function
-    m_window = std::vector < float > (m_fft_win_size);
+    // get windowing coefficients for sliding frequency bin window
+    generateWindowingCoefficients(m_fft_win_size, m_window, m_win_s1, m_win_s2);
 
-    // use Hamming window
-    m_win_s1 = m_win_s2 = 0.0;
-    for (int i=0; i < m_fft_win_size; ++i) {
-        m_window[i] = 0.54 - 0.46 * cos (2 * M_PI * i / m_fft_win_size);
-        m_win_s1 += m_window[i];
-        m_win_s2 += m_window[i] * m_window[i];
-    }
+    // get windowing coefficients for pulse-sized window; we don't estimate power
+    // from this, so don't need the moments
+
+    float ignore1, ignore2;
+    generateWindowingCoefficients(m_plen_in_samples, m_pulse_window, ignore1, ignore2);
 
     m_probe_scale = m_channels * (m_win_s1 * m_win_s1 / 2);
     m_min_pulse_SNR = exp10(m_min_pulse_SNR_dB / 10.0);
@@ -501,7 +532,7 @@ FindPulseFD::process(const float *const *inputBuffers,
                         // copy samples from ring buffer to fft input buffer
                         boost::circular_buffer < float > :: iterator b = m_sample_buf[i].begin();
                         for (int j = 0; j < m_plen_in_samples; ++j, ++b)
-                            m_windowed_fine[i][j] = (float) *b;
+                            m_windowed_fine[i][j] = (float) *b * m_pulse_window[j];
                         // perform fft
                         fftwf_execute(m_plan_fine[i]);
                     }
@@ -529,9 +560,10 @@ FindPulseFD::process(const float *const *inputBuffers,
                     }
 
                     // use a cubic estimator to find the peak frequency estimate using nearby bins
-                    bin_low = std::max(1, std::min(m_plen_in_samples / 2 - 4, max_bin - 2));  // avoid the DC bin
+                    bin_low = std::max(2, std::min(m_plen_in_samples / 2 - 4, max_bin - 2));  // avoid the DC bin
                     
                     float bin_est = -1.0;
+                    float phase[2] = {0, 0}; // 0: I, 1: Q
                     if (bin_low + 4 <= m_plen_in_samples / 2) {
                         float pwr[4];
                         for (int j = bin_low; j < bin_low + 4; ++j) {
@@ -539,10 +571,52 @@ FindPulseFD::process(const float *const *inputBuffers,
                             if (m_channels == 2)
                                 pwr[j - bin_low] += m_fft_fine[1][j][0] * m_fft_fine[1][j][0] + m_fft_fine[1][j][1] * m_fft_fine[1][j][1];
                         }
-                        bin_est = bin_low + CubicMaximize(pwr[0], pwr[1], pwr[2], pwr[3]);
-                    }
-                    if (bin_est < 0)
+                        // get the estimate of the peak beat frequency (in bin units)
+                        bin_est = bin_low + cubicMaximize(pwr[0], pwr[1], pwr[2], pwr[3]);
+                        if (bin_est < 0) {
+                            // if there's  a wonky estimate, then don't use it; FIXME: is this correct?
+                            bin_est = max_bin;
+                        } else if (m_channels == 2) {
+                            // if we have 2 channels, assume they form
+                            // an I/Q pair (as for the funcubedongle),
+                            // and use this to estimate the correct
+                            // sign for the beat frequency
+
+                            // Estimate the phase angle at peak
+                            // frequency for each channel (I and Q).
+                            // I'm not sure this approach to cubic
+                            // interpolation of a circular function is
+                            // correct, but it seems to work.  We map
+                            // phase angles to locations on the unit
+                            // circle, then perform cubic
+                            // interpolataion of x and y coordinates
+                            // separately, then project back to a phase
+                            // angle.
+                            
+                            float phasorx[2][4], phasory[2][4];
+                            for (int i = 0; i < 2; ++i) {
+                                for (int j=0; j < 4; ++j) {
+                                    float theta = atan2f(m_fft_fine[i][j+bin_low][1], m_fft_fine[i][j+bin_low][0]);
+                                    phasorx[i][j] = cosf(theta);
+                                    phasory[i][j] = sinf(theta);
+                                }
+                                phase[i] = atan2(cubicInterpolate(phasory[i][0], phasory[i][1], phasory[i][2], phasory[i][3], bin_est - bin_low),
+                                                 cubicInterpolate(phasorx[i][0], phasorx[i][1], phasorx[i][2], phasorx[i][3], bin_est - bin_low));
+                            }
+
+                            // If shorter phase change from I to Q is positive, then reverse sign of
+                            // frequency estimate.  I don't understand why this works - would have thought
+                            // that what mattered was whether the phase change was > or < 90 degrees.
+                            // Regardless, it's not a very stable sign estimator for frequencies < 1 kHz,
+                            // but then neither is the frequency estimator itself.
+
+                            if ((phase[0] < phase[1] && phase[1] - phase[0] < M_PI)
+                                || (phase[0] > phase[1] && phase[0] - phase[1] > M_PI))
+                                bin_est  = - bin_est;
+                        }
+                    } else {
                         bin_est = max_bin;
+                    }
 
                     std::stringstream ss;
                     ss.precision(3);

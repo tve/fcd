@@ -62,7 +62,9 @@
 class FindPulseFD : public Vamp::Plugin
 {
 public:
-    static float CubicMaximize(float y0, float y1, float y2, float y3);
+    static float cubicMaximize(float y0, float y1, float y2, float y3);
+    static float cubicInterpolate(float y0, float y1, float y2, float y3, float x);
+    static void generateWindowingCoefficients(int N, std::vector < float > &window, float &win_sum, float &win_sumsq);
 
     FindPulseFD(float inputSampleRate);
     virtual ~FindPulseFD();
@@ -92,6 +94,7 @@ public:
                        Vamp::RealTime timestamp);
 
     FeatureSet getRemainingFeatures();
+    
 
 protected:
     size_t m_channels;
@@ -127,7 +130,9 @@ protected:
     int m_pf_size; // size of peak finder moving average window (in units of fft windows)
     float m_min_pulse_SNR; // minimum pulse power to be accepted (linear units)
     std::vector < Vamp::RealTime > m_last_timestamp; // timestamp of previous pulse in each frequency bin; for calculating gaps
-    std::vector < float > m_window; // windowing function for FFT
+    std::vector < float > m_window; // windowing function for sliding FFT
+    std::vector < float > m_pulse_window; // windowing function for FFT on pulse candidates
+
     float m_win_s1; // sum of window weights
     float m_win_s2; // sum of squares of window weights
 
