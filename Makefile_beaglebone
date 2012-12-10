@@ -1,7 +1,6 @@
 LIBUSB_INCLUDE_PATH=/usr/include/libusb-1.0
 #GCC_LIB_OPTIONS=-fpic
-##GCC_OPTIONS=-g -O2 -Wall
-GCC_OPTIONS=-g3 -Wall
+GCC_OPTIONS=-g -O2
 all:	libfcd.a fcd semtool
 
 # hidraw version:
@@ -12,7 +11,7 @@ libfcd.a:	libfcd.h libfcd.c hidapi.h hid.c Makefile
 	ar rcs libfcd.a libfcd.o hid.o
 
 fcd: libfcd.a fcd.c Makefile
-	gcc $(GCC_OPTIONS) -o fcd fcd.c  -L. -lfcd -ludev
+	gcc $(GCC_OPTIONS) -o fcd fcd.c  -L. -lfcd /lib/libudev.so.0
 
 #
 # libusb version:
