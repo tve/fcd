@@ -149,7 +149,7 @@ protected:
     bool m_odd_phase_window_is_bogus; // keep track of whether we're on the first odd-phase window, which has only half
     // the data and so is not used
 
-    std::vector < PulseFinder < float > > m_freq_bin_pulse_finder;
+    std::vector < PulseFinder < double > > m_freq_bin_pulse_finder;
 
     MovingAverager < float, float > m_dcma[2]; // moving averager for removing DC on each channel
 

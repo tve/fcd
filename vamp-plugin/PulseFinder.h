@@ -89,11 +89,12 @@ class PulseFinder {
     m_noise += m_mult_noise * d;
     m_sample_buf.push_back(d);
 
-    // in case of cumulative errors, m_signal or m_noise might be negative.
+    // Due to rounding errors, m_signal or m_noise might be negative,
+    // even though incoming data are all non-negative.
     // fix this!
 
-    m_noise = std::max(0.0, m_noise);
-    m_signal = std::max(0.0, m_signal);
+    m_noise = std::max((DATATYPE)0.0, m_noise);
+    m_signal = std::max((DATATYPE) 0.0, m_signal);
 
     if (m_sample_buf.full()) {
       // we have a full probe value; push it into the probe buffer
@@ -128,7 +129,7 @@ class PulseFinder {
 	  -- m_max_probe_index;
 	}
       }
-      if (m_max_probe_index == m_pulse_sep / 2) {
+      if (m_max_probe_index == m_pulse_sep) {
 	// the central value in the probe buffer is the maximum,
 	// so indicate we have a pulse.
 	m_got_pulse = true;

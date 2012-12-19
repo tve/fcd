@@ -226,14 +226,15 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     m_last_timestamp = std::vector < Vamp::RealTime > (num_bins, Vamp::RealTime(-1, 0));
 
-    m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
+    //    m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
+    m_freq_bin_pulse_finder = std::vector < PulseFinder < double > > (num_bins, PulseFinder < double > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
 
     // allocate time-domain sample buffers for each channel which are large enough to contain
     // the samples for a pulse when it has been detected.  Because pulses are not
     // detected until the sliding window determines them to be maximal in the
     // frequency domain, we need to keep a rather long window.
 
-    int buf_size = m_fft_win_size * ((1 + m_noise_win_size + m_min_pulse_sep) * m_pf_size) / 2.0; // takes us back to centre of pulse from current sample
+    int buf_size = m_fft_win_size * ((m_noise_win_size + m_min_pulse_sep) * m_pf_size + m_pf_size / 2) / 2.0; // takes us back to centre of pulse from current sample
     buf_size += m_plen_in_samples / 2.0; // takes us back a further half pulse width to the start of the pulse
 
     for (int i=0; i < 2; ++i) 
@@ -525,8 +526,7 @@ FindPulseFD::process(const float *const *inputBuffers,
                     // The pulse timestamp is taken to be the centre of the fft window
                     
                     feature.timestamp = timestamp +
-                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((1 + m_noise_win_size + m_min_pulse_sep) * m_pf_size) / 2.0, (size_t) m_inputSampleRate);
-                    // compute a finer estimate of pulse offset frequency
+                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((m_noise_win_size + m_min_pulse_sep) * m_pf_size + m_pf_size / 2) / 2.0, (size_t) m_inputSampleRate);                    // compute a finer estimate of pulse offset frequency
                     
                     for (unsigned i = 0; i < m_channels; ++i ) {
                         // copy samples from ring buffer to fft input buffer
