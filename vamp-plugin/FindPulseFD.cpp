@@ -1,44 +1,44 @@
 /* -*- c-basic-offset: 4 indent-tabs-mode: nil -*-  vi:set ts=8 sts=4 sw=4: */
 
 /*
-    Vamp
+  Vamp
 
-    An API for audio analysis and feature extraction plugins.
+  An API for audio analysis and feature extraction plugins.
 
-    Centre for Digital Music, Queen Mary, University of London.
-    Copyright 2006 Chris Cannam.
+  Centre for Digital Music, Queen Mary, University of London.
+  Copyright 2006 Chris Cannam.
 
-    VAMP license:
+  VAMP license:
 
-        Permission is hereby granted, free of charge, to any person
-        obtaining a copy of this software and associated documentation
-        files (the "Software"), to deal in the Software without
-        restriction, including without limitation the rights to use, copy,
-        modify, merge, publish, distribute, sublicense, and/or sell copies
-        of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
+  Permission is hereby granted, free of charge, to any person
+  obtaining a copy of this software and associated documentation
+  files (the "Software"), to deal in the Software without
+  restriction, including without limitation the rights to use, copy,
+  modify, merge, publish, distribute, sublicense, and/or sell copies
+  of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
     
-        The above copyright notice and this permission notice shall be
-        included in all copies or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be
+  included in all copies or substantial portions of the Software.
     
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-        NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
-        ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-        CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-        WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+  ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     
-        Except as contained in this notice, the names of the Centre for
-        Digital Music; Queen Mary, University of London; and Chris Cannam
-        shall not be used in advertising or otherwise to promote the sale,
-        use or other dealings in this Software without prior written
-        authorization.
+  Except as contained in this notice, the names of the Centre for
+  Digital Music; Queen Mary, University of London; and Chris Cannam
+  shall not be used in advertising or otherwise to promote the sale,
+  use or other dealings in this Software without prior written
+  authorization.
     
-    FindPulseFD.cpp - find pulses from Lotek tags - frequency domain
-    Copyright 2012 John Brzustowski
+  FindPulseFD.cpp - find pulses from Lotek tags - frequency domain
+  Copyright 2012 John Brzustowski
 
-    License: GPL v 2.0 or later.  This is required in order to use fftw.
+  License: GPL v 2.0 or later.  This is required in order to use fftw.
 
 */
 
@@ -57,46 +57,50 @@ const char * FindPulseFD::fftw_wisdom_filename = "./fftw_wisdom.dat";
 float 
 FindPulseFD::cubicMaximize(float y0, float y1, float y2, float y3)
 {
-   // Find coefficients of cubic
+    // Find coefficients of cubic
 
-   float a, b, c;
+    float a, b, c;
 
-   a = y0 / -6.0 + y1 / 2.0 - y2 / 2.0 + y3 / 6.0;
-   b = y0 - 5.0 * y1 / 2.0 + 2.0 * y2 - y3 / 2.0;
-   c = -11.0 * y0 / 6.0 + 3.0 * y1 - 3.0 * y2 / 2.0 + y3 / 3.0;
+    a = y0 / -6.0 + y1 / 2.0 - y2 / 2.0 + y3 / 6.0;
 
-   // Take derivative
+    if (a == 0.0)
+        return float(-1); // error
 
-   float da, db, dc;
+    b = y0 - 5.0 * y1 / 2.0 + 2.0 * y2 - y3 / 2.0;
+    c = -11.0 * y0 / 6.0 + 3.0 * y1 - 3.0 * y2 / 2.0 + y3 / 3.0;
 
-   da = 3 * a;
-   db = 2 * b;
-   dc = c;
+    // Take derivative
 
-   // Find zeroes of derivative using quadratic equation
+    float da, db, dc;
 
-   float discriminant = db * db - 4 * da * dc;
-   if (discriminant < 0.0)
-      return float(-1.0);              // error
+    da = 3 * a;
+    db = 2 * b;
+    dc = c;
 
-   float x1 = (-db + sqrt(discriminant)) / (2 * da);
-   float x2 = (-db - sqrt(discriminant)) / (2 * da);
+    // Find zeroes of derivative using quadratic equation
 
-   // The one which corresponds to a local _maximum_ in the
-   // cubic is the one we want - the one with a negative
-   // second derivative
+    float discriminant = db * db - 4 * da * dc;
+    if (discriminant < 0.0)
+        return float(-1.0);              // error
 
-   float dda = 2 * da;
-   float ddb = db;
+    float x1 = (-db + sqrt(discriminant)) / (2 * da);
+    float x2 = (-db - sqrt(discriminant)) / (2 * da);
 
-   if (dda * x1 + ddb < 0)
-   {
-      return x1;
-   }
-   else
-   {
-      return x2;
-   }
+    // The one which corresponds to a local _maximum_ in the
+    // cubic is the one we want - the one with a negative
+    // second derivative
+
+    float dda = 2 * da;
+    float ddb = db;
+
+    if (dda * x1 + ddb < 0)
+        {
+            return x1;
+        }
+    else
+        {
+            return x2;
+        }
 }
 
 // from Audacity 2.0.1's src/FreqWindow.cpp:
@@ -104,17 +108,17 @@ FindPulseFD::cubicMaximize(float y0, float y1, float y2, float y3)
 float 
 FindPulseFD::cubicInterpolate(float y0, float y1, float y2, float y3, float x)
 {
-   float a, b, c, d;
+    float a, b, c, d;
 
-   a = y0 / -6.0 + y1 / 2.0 - y2 / 2.0 + y3 / 6.0;
-   b = y0 - 5.0 * y1 / 2.0 + 2.0 * y2 - y3 / 2.0;
-   c = -11.0 * y0 / 6.0 + 3.0 * y1 - 3.0 * y2 / 2.0 + y3 / 3.0;
-   d = y0;
+    a = y0 / -6.0 + y1 / 2.0 - y2 / 2.0 + y3 / 6.0;
+    b = y0 - 5.0 * y1 / 2.0 + 2.0 * y2 - y3 / 2.0;
+    c = -11.0 * y0 / 6.0 + 3.0 * y1 - 3.0 * y2 / 2.0 + y3 / 3.0;
+    d = y0;
 
-   float xx = x * x;
-   float xxx = xx * x;
+    float xx = x * x;
+    float xxx = xx * x;
 
-   return (a * xxx + b * xx + c * x + d);
+    return (a * xxx + b * xx + c * x + d);
 };
 
 void
@@ -226,19 +230,20 @@ FindPulseFD::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     m_last_timestamp = std::vector < Vamp::RealTime > (num_bins, Vamp::RealTime(-1, 0));
 
-    //    m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
-    m_freq_bin_pulse_finder = std::vector < PulseFinder < double > > (num_bins, PulseFinder < double > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
+    m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
 
     // allocate time-domain sample buffers for each channel which are large enough to contain
     // the samples for a pulse when it has been detected.  Because pulses are not
     // detected until the sliding window determines them to be maximal in the
     // frequency domain, we need to keep a rather long window.
 
-    int buf_size = m_fft_win_size * ((m_noise_win_size + m_min_pulse_sep) * m_pf_size + m_pf_size / 2) / 2.0; // takes us back to centre of pulse from current sample
-    buf_size += m_plen_in_samples / 2.0; // takes us back a further half pulse width to the start of the pulse
+    // int buf_size = m_fft_win_size * ((m_noise_win_size + m_min_pulse_sep) * m_pf_size + m_pf_size / 2) / 2.0; // takes us back to centre of pulse from current sample
+    // buf_size += m_plen_in_samples / 2.0; // takes us back a further half pulse width to the start of the pulse
+
+    int buf_size = m_fft_win_size * ((m_noise_win_size + m_min_pulse_sep) * m_pf_size + 1) / 2 + m_plen_in_samples - 1; // takes us back to start of pulse from current sample
 
     for (int i=0; i < 2; ++i) 
-        m_sample_buf[i] = boost::circular_buffer < float > (round(buf_size));
+        m_sample_buf[i] = boost::circular_buffer < float > (buf_size);
 
     // allocate windowed sample buffers, fft output buffers and plans
     // for finer dfreq estimates based on pulse samples
@@ -447,7 +452,7 @@ FindPulseFD::getOutputDescriptors() const
 
 FindPulseFD::FeatureSet
 FindPulseFD::process(const float *const *inputBuffers,
-                      Vamp::RealTime timestamp)
+                     Vamp::RealTime timestamp)
 {
     FeatureSet returnFeatures;
 
@@ -459,25 +464,19 @@ FindPulseFD::process(const float *const *inputBuffers,
     }
 
     for (unsigned int i=0; i < m_blockSize; ++i) {
-        m_dcma[0].process(inputBuffers[0][i]);
-        m_sample_buf[0].push_back(inputBuffers[0][i]);
-
-        if (m_channels == 2) {
-            m_dcma[1].process(inputBuffers[1][i]);
-            m_sample_buf[1].push_back(inputBuffers[1][i]);
+        for (unsigned short ch = 0; ch < m_channels; ++ch) {
+            m_dcma[ch].process(inputBuffers[ch][i]);
+            m_sample_buf[ch].push_back(inputBuffers[ch][i]);
         }
 
         if (! m_dcma[0].have_average())
             continue;
         
         // append each weighted sample to each window
-        float avg = m_dcma[0].get_average();
-        m_windowed[0][m_num_windowed_samples[0]] = (inputBuffers[0][i] - avg) * m_window[m_num_windowed_samples[0]];
-        m_windowed[1][m_num_windowed_samples[1]] = (inputBuffers[0][i] - avg) * m_window[m_num_windowed_samples[1]];
-        if (m_channels == 2) {
-            avg = m_dcma[1].get_average();
-            m_windowed[0 + 2][m_num_windowed_samples[0]] = (inputBuffers[1][i] - avg) * m_window[m_num_windowed_samples[0]];
-            m_windowed[1 + 2][m_num_windowed_samples[1]] = (inputBuffers[1][i] - avg) * m_window[m_num_windowed_samples[1]];
+        for (unsigned short ch = 0, k = 0; ch < m_channels; ++ch, k += 2) {
+            float avg = m_dcma[ch].get_average();
+            m_windowed[0 + k][m_num_windowed_samples[0]] = (inputBuffers[ch][i] - avg) * m_window[m_num_windowed_samples[0]];
+            m_windowed[1 + k][m_num_windowed_samples[1]] = (inputBuffers[ch][i] - avg) * m_window[m_num_windowed_samples[1]];
         }
 
         for (unsigned short w=0; w < 2; ++w) {
@@ -491,15 +490,16 @@ FindPulseFD::process(const float *const *inputBuffers,
                     break;
                 }
 
-                fftwf_execute(m_plan[w]);
-                if (m_channels == 2)
-                    fftwf_execute(m_plan[w + 2]);
+                for (unsigned short ch = 0, k = 0; ch < m_channels; ++ch, k += 2)
+                    fftwf_execute(m_plan[w + k]);
 
                 for (int j = m_first_freq_bin; j <= m_last_freq_bin; ++j) {
                     // for each bin, process total power across both channels in that bin
-                    float pwr = m_fft[0][j][0] * m_fft[0][j][0] + m_fft[0][j][1] * m_fft[0][j][1];
-                    if (m_channels == 2)
-                        pwr += m_fft[1][j][0] * m_fft[1][j][0] + m_fft[1][j][1] * m_fft[1][j][1];
+                    
+                    float pwr = 0.0;
+                    for (unsigned short ch = 0; ch < m_channels; ++ch)
+                        pwr += m_fft[ch][j][0] * m_fft[ch][j][0] + m_fft[ch][j][1] * m_fft[ch][j][1];
+
                     m_freq_bin_pulse_finder[j].process(pwr);
                 }            
                 // Any frequency bin may have seen a pulse (local max).
@@ -518,7 +518,7 @@ FindPulseFD::process(const float *const *inputBuffers,
                     }
                 }
                 if (best >= 0) {
-                            // dump the feature
+                    // dump the feature
                     Feature feature;
                     feature.hasTimestamp = true;
                     feature.hasDuration = false;
@@ -526,15 +526,19 @@ FindPulseFD::process(const float *const *inputBuffers,
                     // The pulse timestamp is taken to be the centre of the fft window
                     
                     feature.timestamp = timestamp +
-                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * ((m_noise_win_size + m_min_pulse_sep) * m_pf_size + m_pf_size / 2) / 2.0, (size_t) m_inputSampleRate);                    // compute a finer estimate of pulse offset frequency
+                        Vamp::RealTime::frame2RealTime((signed int) i - m_fft_win_size * (1 + (m_noise_win_size + m_min_pulse_sep) * m_pf_size + m_pf_size / 2) / 2.0 +2, (size_t) m_inputSampleRate);                    
+
+                    // compute a finer estimate of pulse offset frequency
                     
-                    for (unsigned i = 0; i < m_channels; ++i ) {
+                    for (unsigned short ch = 0; ch < m_channels; ++ch ) {
                         // copy samples from ring buffer to fft input buffer
-                        boost::circular_buffer < float > :: iterator b = m_sample_buf[i].begin();
-                        for (int j = 0; j < m_plen_in_samples; ++j, ++b)
-                            m_windowed_fine[i][j] = (float) *b * m_pulse_window[j];
+                        boost::circular_buffer < float > :: iterator b = m_sample_buf[ch].begin();
+
+                        for (int j = 0; j < m_plen_in_samples; ++j, ++b) {
+                            m_windowed_fine[ch][j] = (float) *b * m_pulse_window[j];
+                        }
                         // perform fft
-                        fftwf_execute(m_plan_fine[i]);
+                        fftwf_execute(m_plan_fine[ch]);
                     }
 
                     // among those frequency bins covered by the
@@ -550,9 +554,9 @@ FindPulseFD::process(const float *const *inputBuffers,
                     float max_power = 0.0;
                     int max_bin = -1;
                     for (int j = bin_low; j < bin_high; ++j) {
-                        float pwr = m_fft_fine[0][j][0] * m_fft_fine[0][j][0] + m_fft_fine[0][j][1] * m_fft_fine[0][j][1];
-                        if (m_channels == 2)
-                            pwr += m_fft_fine[1][j][0] * m_fft_fine[1][j][0] + m_fft_fine[1][j][1] * m_fft_fine[1][j][1];
+                        float pwr = 0.0;
+                        for (unsigned short ch = 0; ch < m_channels; ++ch )
+                            pwr += m_fft_fine[ch][j][0] * m_fft_fine[ch][j][0] + m_fft_fine[ch][j][1] * m_fft_fine[ch][j][1];
                         if (pwr > max_power) {
                             max_power = pwr;
                             max_bin = j;
@@ -561,19 +565,19 @@ FindPulseFD::process(const float *const *inputBuffers,
 
                     // use a cubic estimator to find the peak frequency estimate using nearby bins
                     bin_low = std::max(2, std::min(m_plen_in_samples / 2 - 4, max_bin - 2));  // avoid the DC bin
-                    
+
                     float bin_est = -1.0;
                     float phase[2] = {0, 0}; // 0: I, 1: Q
-                    if (bin_low + 4 <= m_plen_in_samples / 2) {
+                    if (bin_low + 3 <= m_plen_in_samples / 2) {
                         float pwr[4];
                         for (int j = bin_low; j < bin_low + 4; ++j) {
-                            pwr[j - bin_low] = m_fft_fine[0][j][0] * m_fft_fine[0][j][0] + m_fft_fine[0][j][1] * m_fft_fine[0][j][1];
-                            if (m_channels == 2)
-                                pwr[j - bin_low] += m_fft_fine[1][j][0] * m_fft_fine[1][j][0] + m_fft_fine[1][j][1] * m_fft_fine[1][j][1];
+                            pwr[j - bin_low] = 0;
+                            for (unsigned short ch = 0; ch < m_channels; ++ch )
+                                pwr[j - bin_low] += m_fft_fine[ch][j][0] * m_fft_fine[ch][j][0] + m_fft_fine[ch][j][1] * m_fft_fine[ch][j][1];
                         }
                         // get the estimate of the peak beat frequency (in bin units)
                         bin_est = bin_low + cubicMaximize(pwr[0], pwr[1], pwr[2], pwr[3]);
-                        if (bin_est < 0) {
+                        if (bin_est < 0 || bin_est > m_last_freq_bin) {
                             // if there's  a wonky estimate, then don't use it; FIXME: is this correct?
                             bin_est = max_bin;
                         } else if (m_channels == 2) {
@@ -619,8 +623,8 @@ FindPulseFD::process(const float *const *inputBuffers,
                     }
 
                     std::stringstream ss;
-                    ss.precision(3);
-                    // frequency is that of middle of bin
+                    ss.precision(5);
+ 
                     ss << " freq: " << (bin_est * ((float) m_inputSampleRate / m_plen_in_samples)) / 1000
                        << " kHz; SNR: " << 10 * log10(m_freq_bin_pulse_finder[best].pulse_SNR())
                        << " dB; sig: " << 10 * log10(m_freq_bin_pulse_finder[best].pulse_signal() / m_probe_scale)
