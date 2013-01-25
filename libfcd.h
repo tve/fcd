@@ -24,28 +24,12 @@
 #ifndef LIBFCD_H
 #define LIBFCD_H 1
 
-#ifdef FCD
-#define EXTERN
-#define ASSIGN (x) =x
-#else
-#define EXTERN extern
-#define ASSIGN(x)
-#endif
-
-#ifdef _WIN32
-#define FCD_API_EXPORT __declspec(dllexport)
-#define FCD_API_CALL  _stdcall
-#else
-#define FCD_API_EXPORT
-#define FCD_API_CALL
-#endif
-
 #include <inttypes.h>
-#include "hidapi.h"
+#include "libusb.h"
 
 /** \brief FCD model enumeration. */
 typedef enum {
-  FCD_MODEL_PRO,        /*!< FCD pro */
+  FCD_MODEL_PRO,         /*!< FCD pro */
   FCD_MODEL_PRO_PLUS,    /*!< FCD pro plus */
 
   FCD_MODEL_FIRST_MODEL = FCD_MODEL_PRO,
@@ -56,14 +40,20 @@ extern const unsigned short _usVID[];
 extern const unsigned short _usPID[];
 extern char *FCD_MODEL_NAMES[];
 
+/** \brief FCD USB interface number for getting/changing settings */
+#define FCD_SETTINGS_INTERFACE 2
+#define FCD_SEND_COMMAND_ENDPOINT 0x02
+#define FCD_RECEIVE_REPLY_ENDPOINT 0x82
+
 /** \brief FCD device descriptor */
 typedef struct {
-  FCD_MODEL_ENUM model;      /*!< funcubedongle pro, pro+, ... */
-  char *pszModelName;        /*!< model name */
-  unsigned short serialNum;  /*!< eventually, fcd's serial number as set by future API */
-  unsigned short enumNum;    /*!< index into hidusb enumeration */
-  hid_device *phd;           /*!< handle of device; NULL means no device */
-  char *pszPath;             /*!< system-dependent path to device */
+  FCD_MODEL_ENUM	 model;		/*!< funcubedongle pro, pro+, ... */
+  char			*pszModelName;	/*!< model name */
+  unsigned short	 enumNum;	/*!< index into hidusb enumeration */
+  libusb_device_handle	*phd;		/*!< handle of device; NULL means no device */
+  uint8_t                busNum;        /*!< number USB bus on which device is found */
+  uint8_t                devNum;        /*!< number of device on this USB bus */
+  char			*pszPath;	/*!< system-dependent path to device */
 } fcdDesc;
 
 /** \brief FCD mode enumeration. */
@@ -74,9 +64,9 @@ typedef enum {
 
 /** \brief FCD return code enumeration. */
 typedef enum {
-  FCD_RETCODE_ABSENT,  /*!< No FCD detected. */
-  FCD_RETCODE_OKAY,    /*!< FCD command succeeded */
-  FCD_RETCODE_ERROR    /*!< FCD command failed */
+  FCD_RETCODE_ABSENT = 1,  /*!< No FCD detected. */
+  FCD_RETCODE_OKAY = 0,    /*!< FCD command succeeded */
+  FCD_RETCODE_ERROR = 2    /*!< FCD command failed */
 } FCD_RETCODE_ENUM;
 
 
@@ -84,31 +74,29 @@ typedef enum {
 extern "C" {
 #endif
 
-  /* hidapi read timeout parameteqrs */
+  /* Library functions */
 
-#define WRAPPED_HID_READ_SINGLE_TIMEOUT 10 // milliseconds
-#define WRAPPED_HID_READ_MAX_COUNT 10 // number of times to try a read
+  extern FCD_RETCODE_ENUM fcdInitLibrary();
+  extern FCD_RETCODE_ENUM fcdShutDownLibrary();
 
   /* Application functions */
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t serialNum, uint16_t enumNum, const char *usbPath);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD_MODE_ENUM *pMode);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppReset(fcdDesc *fcd);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetFreqkHz(fcdDesc *fcd, int nFreq);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetFreq(fcdDesc *fcd, uint32_t nFreq);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetFreq(fcdDesc *fcd, uint32_t *nFreq);
 
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
-
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd);
+  extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum);
+  extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd);
+  extern FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD_MODE_ENUM *pMode);
+  extern FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str);
+  extern FCD_RETCODE_ENUM fcdAppReset(fcdDesc *fcd);
+  extern FCD_RETCODE_ENUM fcdAppSetFreqkHz(fcdDesc *fcd, int nFreq);
+  extern FCD_RETCODE_ENUM fcdAppSetFreq(fcdDesc *fcd, uint32_t nFreq, uint32_t * actualFreq);
+  extern FCD_RETCODE_ENUM fcdAppGetFreq(fcdDesc *fcd, uint32_t *nFreq);
+  
+  extern FCD_RETCODE_ENUM fcdAppSetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
+  extern FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8Data, uint8_t u8len);
+  
+  extern FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd);
 
   /* Bootloader functions */
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlReset(fcdDesc *fcd);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
-  EXTERN FCD_API_EXPORT FCD_API_CALL FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
+  extern FCD_RETCODE_ENUM fcdBlReset(fcdDesc *fcd);
 
 #ifdef __cplusplus
 }
