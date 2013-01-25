@@ -29,11 +29,12 @@
 
 /** \brief FCD model enumeration. */
 typedef enum {
-  FCD_MODEL_PRO,         /*!< FCD pro */
-  FCD_MODEL_PRO_PLUS,    /*!< FCD pro plus */
+  FCD_MODEL_PRO = 0,         /*!< FCD pro */
+  FCD_MODEL_PRO_PLUS = 1,    /*!< FCD pro plus */
 
   FCD_MODEL_FIRST_MODEL = FCD_MODEL_PRO,
-  FCD_MODEL_LAST_MODEL = FCD_MODEL_PRO_PLUS
+  FCD_MODEL_LAST_MODEL = FCD_MODEL_PRO_PLUS,
+  FCD_MODEL_NUM_MODELS = FCD_MODEL_LAST_MODEL - FCD_MODEL_FIRST_MODEL + 1
 } FCD_MODEL_ENUM; // The model type for a funcubedongle
 
 extern const unsigned short _usVID[];
@@ -41,6 +42,10 @@ extern const unsigned short _usPID[];
 extern char *FCD_MODEL_NAMES[];
 
 /** \brief FCD USB interface number for getting/changing settings */
+#define FCD_AUDIO_CONTROL_INTERFACE 0
+#define FCD_STREAMING_INTERFACE 1
+#define FCD_STREAMING_INTERFACE_SETTING_OFF 0
+#define FCD_STREAMING_INTERFACE_SETTING_ON  1
 #define FCD_SETTINGS_INTERFACE 2
 #define FCD_SEND_COMMAND_ENDPOINT 0x02
 #define FCD_RECEIVE_REPLY_ENDPOINT 0x82
@@ -49,8 +54,8 @@ extern char *FCD_MODEL_NAMES[];
 typedef struct {
   FCD_MODEL_ENUM	 model;		/*!< funcubedongle pro, pro+, ... */
   char			*pszModelName;	/*!< model name */
-  unsigned short	 enumNum;	/*!< index into hidusb enumeration */
-  libusb_device_handle	*phd;		/*!< handle of device; NULL means no device */
+  libusb_device         *dev;           /*!< pointer to USB device; NULL means no device */
+  libusb_device_handle	*phd;		/*!< handle of open device */
   uint8_t                busNum;        /*!< number USB bus on which device is found */
   uint8_t                devNum;        /*!< number of device on this USB bus */
   char			*pszPath;	/*!< system-dependent path to device */
@@ -82,6 +87,7 @@ extern "C" {
   /* Application functions */
 
   extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum);
+  extern FCD_RETCODE_ENUM fcdResetDev(uint16_t enumNum, uint8_t busNum, uint8_t devNum);
   extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd);
   extern FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD_MODE_ENUM *pMode);
   extern FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str);
@@ -142,8 +148,8 @@ extern "C" {
 #define FCD_CMD_APP_SET_IF_GAIN4     123
 #define FCD_CMD_APP_SET_IF_GAIN5     124
 #define FCD_CMD_APP_SET_IF_GAIN6     125
-
-#define FCD_CMD_APP_NUM_PARAMS       (FCD_CMD_APP_SET_IF_GAIN6 - FCD_CMD_APP_FIRST_SET_CMD + 1)
+#define FCD_CMD_APP_SET_BIAS_TEE     126
+#define FCD_CMD_APP_NUM_PARAMS       (FCD_CMD_APP_SET_BIAS_TEE - FCD_CMD_APP_FIRST_SET_CMD + 1)
 
 #define FCD_CMD_APP_FIRST_GET_CMD    150
 #define FCD_CMD_APP_GET_LNA_GAIN     150 // Retrieve a 1 byte value, see enums for reference
@@ -162,9 +168,7 @@ extern "C" {
 #define FCD_CMD_APP_GET_IF_GAIN4     163
 #define FCD_CMD_APP_GET_IF_GAIN5     164
 #define FCD_CMD_APP_GET_IF_GAIN6     165
-
-#define FCD_CMD_APP_SEND_I2C_BYTE    200
-#define FCD_CMD_APP_RECV_I2C_BYTE    201
+#define FCD_CMD_APP_GET_BIAS_TEE     166
 
 #define FCD_CMD_APP_RESET            255 // Reset to bootloader
 
@@ -382,5 +386,55 @@ typedef enum
     TIG6E_P12_0DB=3,
     TIG6E_P15_0DB=4
   } TUNER_IF_GAIN6_ENUM;
+
+
+// FCD PRO PLUS
+
+typedef enum
+{
+  PP_TLGE_OFF = 0,
+  PP_TLGE_ON = 1
+} PP_TUNER_LNA_GAIN_ENUM;
+
+typedef enum
+{
+  PP_TMGE_OFF = 0,
+  PP_TMGE_ON = 1
+} PP_TUNER_MIXER_GAIN_ENUM;
+
+
+typedef enum
+{
+    PP_TRFE_0_4 = 0,
+    PP_TRFE_4_8,
+    PP_TRFE_8_16,
+    PP_TRFE_16_32,
+    PP_TRFE_32_75,
+    PP_TRFE_75_125,
+    PP_TRFE_125_250,
+    PP_TRFE_145,
+    PP_TRFE_410_875,
+    PP_TRFE_435,
+    PP_TRFE_875_2000
+} PP_TUNER_RF_FILTER_ENUM;
+
+typedef enum
+{
+    PP_TIFE_200KHZ = 0,
+    PP_TIFE_300KHZ,
+    PP_TIFE_600KHZ,
+    PP_TIFE_1536KHZ,
+    PP_TIFE_5MHZ,
+    PP_TIFE_6MHZ,
+    PP_TIFE_7MHZ,
+    PP_TIFE_8MHZ
+} PP_TUNER_IF_FILTER;
+
+typedef enum
+{
+  PP_BTE_OFF = 0,
+  PP_BTE_ON  = 1
+} PP_BIAS_TEE_ENUM;
+
 
 #endif // LIBFCD_H

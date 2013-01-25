@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#define FCD_NUM
 const unsigned short _usVID[] = {0x04D8, 0x04D8};  /*!< USB vendor ID enumerated by FCD_MODEL_ENUM */
 const unsigned short _usPID[] = {0xFB56, 0xFB31};  /*!< USB product ID enumerated by FCD_MODEL_ENUM */
 
@@ -48,6 +49,70 @@ extern FCD_RETCODE_ENUM fcdShutDownLibrary() {
   return FCD_RETCODE_OKAY;
 }
 
+libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD_MODEL_ENUM *model) {
+  /** \brief Find FCD device.
+   * \param enumNum enumeration number of device to open; 0 means first FCD, 1 means 2nd FCD, etc.
+   * \param busNum bus number of device to open
+   * \param devNum number of device (on bus busNum) to open
+   * \param model if not NULL, a pointer to a location to store the model type if the device is found.
+   * \return A pointer to the device, which must later be freed using libusb_unref_device(), or
+   * NULL if no matching device was found.
+   */
+  libusb_device **list;
+  libusb_device *found = NULL;
+
+  uint16_t currEnumNum = -1;
+
+  if (!ctx && fcdInitLibrary())
+    return 0;
+
+  ssize_t i = 0;
+
+  ssize_t cnt = libusb_get_device_list(ctx, &list);
+  if (cnt < 0)
+    return 0;
+
+  FCD_MODEL_ENUM mod;
+    
+  for (i = 0; i < cnt; i++) {
+    libusb_device *device = list[i];
+    struct libusb_device_descriptor dsc;
+    if (libusb_get_device_descriptor(device, &dsc)) {
+      break;
+    }
+
+    // check whether this device is an FCD
+    int is_fcd = FALSE;
+    for (mod = FCD_MODEL_FIRST_MODEL; mod <= FCD_MODEL_LAST_MODEL; ++mod) {
+      if (dsc.idVendor == _usVID[mod]  && dsc.idProduct == _usPID[mod]) {
+	currEnumNum++;
+	is_fcd = TRUE;
+	break;
+      }
+    }
+    if (is_fcd) {
+      if (busNum > 0) {
+	if (libusb_get_bus_number(device) == busNum && libusb_get_device_address(device) == devNum) {
+	  found = device;
+	  break;
+	}
+      } else {
+	if (enumNum == currEnumNum) {
+	  found = device;
+	  break;
+	}
+      }
+    }
+  }
+  if (found) {
+    libusb_ref_device (found);
+    if (model)
+      *model = mod;
+  }
+  libusb_free_device_list(list, 1);
+  return found;
+}
+
 /** \brief Open FCD device.
   * \param fcd Pointer to a pre-allocated FCD device descriptor, whose fields will be filled by this function.
   * \param enumNum enumeration number of device to open; 0 means first FCD, 1 means 2nd FCD, etc.
@@ -61,88 +126,59 @@ extern FCD_RETCODE_ENUM fcdShutDownLibrary() {
   * provides stability of nomenclature across plugging/unplugging of other FCDs.
   */
 extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum)
-{
-  libusb_device **list;
-  libusb_device *found = NULL;
-
-  uint16_t currEnumNum = -1;
-
-  if (!ctx && fcdInitLibrary())
-    return FCD_RETCODE_ERROR;
-
+{ 
   if (!fcd)
     return FCD_RETCODE_ERROR;
 
+  FCD_RETCODE_ENUM rv = FCD_RETCODE_OKAY;
+
   fcd->phd = NULL; // assume no matching FCD found
 
-  ssize_t i = 0;
-
-  ssize_t cnt = libusb_get_device_list(ctx, &list);
-  if (cnt < 0)
+  FCD_MODEL_ENUM model;
+  if (!(fcd->dev = findDevice(enumNum, busNum, devNum, & model)))
     return FCD_RETCODE_ABSENT;
 
-  FCD_RETCODE_ENUM rv;
-
-  FCD_MODEL_ENUM model;
-    
-    for (i = 0; i < cnt; i++) {
-      libusb_device *device = list[i];
-      struct libusb_device_descriptor dsc;
-      if (libusb_get_device_descriptor(device, &dsc)) {
-	rv = FCD_RETCODE_ERROR;
-	break;
-      }
-
-      // check whether this device is an FCD
-      int is_fcd = FALSE;
-      for (model = FCD_MODEL_FIRST_MODEL; model <= FCD_MODEL_LAST_MODEL; ++model) {
-	if (dsc.idVendor == _usVID[model]  && dsc.idProduct == _usPID[model]) {
-	  currEnumNum++;
-	  is_fcd = TRUE;
-	  break;
-	}
-      }
-      if (is_fcd) {
-	if (busNum > 0) {
-	  if (libusb_get_bus_number(device) == busNum && libusb_get_device_address(device) == devNum) {
-	    found = device;
-	    break;
-	  }
-	} else {
-	  if (enumNum == currEnumNum) {
-	    found = device;
-	    break;
-	  }
-	}
-      }
-    }
-	
-    if (found) {
-      if (libusb_open(found, &fcd->phd)) {
-	rv = FCD_RETCODE_ERROR;
-      } else {
-	int kernel_owns = libusb_kernel_driver_active(fcd->phd, FCD_SETTINGS_INTERFACE);
-	if (kernel_owns < 0
-	    || (kernel_owns == 1 && libusb_detach_kernel_driver(fcd->phd, FCD_SETTINGS_INTERFACE) != 0) 
-	    || libusb_claim_interface(fcd->phd, FCD_SETTINGS_INTERFACE) != 0) {
-	  libusb_close(fcd->phd);
-	  rv = FCD_RETCODE_ERROR;
-	} else {
-	  fcd->busNum = libusb_get_bus_number(found);
-	  fcd->devNum = libusb_get_device_address(found);
-	  fcd->enumNum = currEnumNum;
-	  fcd->model = model;
-	  fcd->pszModelName = strdup(FCD_MODEL_NAMES[model]);
-	  rv = FCD_RETCODE_OKAY;
-	}
-      }
-    } else {
+  if (libusb_open(fcd->dev, &fcd->phd)) {
+    rv = FCD_RETCODE_ERROR;
+  } else {
+    int kernel_owns = libusb_kernel_driver_active(fcd->phd, FCD_SETTINGS_INTERFACE);
+    if (kernel_owns < 0
+	|| (kernel_owns == 1 && libusb_detach_kernel_driver(fcd->phd, FCD_SETTINGS_INTERFACE) != 0) 
+	|| libusb_claim_interface(fcd->phd, FCD_SETTINGS_INTERFACE) != 0) {
+      libusb_close(fcd->phd);
       rv = FCD_RETCODE_ERROR;
+    } else {
+      fcd->busNum = libusb_get_bus_number(fcd->dev);
+      fcd->devNum = libusb_get_device_address(fcd->dev);
+      fcd->model = model;
+      fcd->pszModelName = strdup(FCD_MODEL_NAMES[model]);
+      rv = FCD_RETCODE_OKAY;
     }
-    libusb_free_device_list(list, 1);
-    return rv;
+  }
+  return rv;
 }
 
+extern FCD_RETCODE_ENUM fcdResetDev(uint16_t enumNum, uint8_t busNum, uint8_t devNum)
+{
+  fcdDesc fcd;
+  FCD_RETCODE_ENUM rv = FCD_RETCODE_OKAY;
+
+  if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum))
+    return FCD_RETCODE_ERROR;
+  //  if (libusb_set_configuration(fcd.phd, 1)) {
+    /* try hard reset */
+    int kernel_owns = libusb_kernel_driver_active(fcd.phd, FCD_STREAMING_INTERFACE);
+    if (kernel_owns == 1)
+      libusb_detach_kernel_driver(fcd.phd, FCD_STREAMING_INTERFACE);
+    libusb_claim_interface(fcd.phd, FCD_STREAMING_INTERFACE);
+    libusb_set_interface_alt_setting(fcd.phd, FCD_STREAMING_INTERFACE, FCD_STREAMING_INTERFACE_SETTING_OFF);
+    libusb_release_interface(fcd.phd, FCD_STREAMING_INTERFACE);
+    if (libusb_reset_device(fcd.phd))
+      rv = FCD_RETCODE_ERROR;
+    //  }
+  fcdClose(&fcd);
+  return rv;
+}
 
 
 /** \brief Close FCD HID device.
@@ -150,7 +186,7 @@ extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, 
   */
 extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd)
 {
-    if (! (fcd && fcd->phd))
+    if (! (fcd && fcd->dev))
 	return FCD_RETCODE_ABSENT;
 
     if (fcd->phd) {
@@ -161,6 +197,10 @@ extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd)
     if (fcd->pszModelName) {
 	free(fcd->pszModelName);
 	fcd->pszModelName = NULL;
+    }
+    if (fcd->dev) {
+      libusb_unref_device(fcd->dev);
+      fcd->dev = NULL;
     }
     return FCD_RETCODE_OKAY;
 }
@@ -176,14 +216,23 @@ static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data,
     memcpy(& buf[1], data, len <= 64 ? len : 64);
   int transferred = 0;
   int err;
+
+  //libusb_clear_halt (fcd->phd, FCD_SEND_COMMAND_ENDPOINT);
+  //libusb_clear_halt (fcd->phd, FCD_RECEIVE_REPLY_ENDPOINT);
   err = libusb_interrupt_transfer (fcd->phd,
 				   FCD_SEND_COMMAND_ENDPOINT,
 				   & buf[0],
 				   64,
 				   & transferred,
 				   2500); // timeout in milliseconds
-  if (err) 
+  if (err) {
+    if (err == -7)
+      libusb_clear_halt (fcd->phd, FCD_SEND_COMMAND_ENDPOINT);
     return FCD_RETCODE_ERROR;
+  }
+
+  usleep(10000);  // sleep 10 ms
+
   err = libusb_interrupt_transfer (fcd->phd,
 				   FCD_RECEIVE_REPLY_ENDPOINT,
 				   & buf[0],
@@ -191,8 +240,11 @@ static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data,
 				   & transferred,
 				   2500);
 
-  if (err || buf[0] != cmd || buf[1] != 1)
+  if (err || buf[0] != cmd || buf[1] != 1) {
+    if (err = -7)
+      libusb_clear_halt (fcd->phd, FCD_SEND_COMMAND_ENDPOINT);
     return FCD_RETCODE_ERROR;
+  }
 
   if (reply)
     memcpy(reply, &buf[2], replyLen <= 62 ? replyLen : 62);
@@ -392,9 +444,11 @@ typedef struct {
 
 } param_value;
 
-static param_value param_defaults[] = {
+// default parameter indexes and values, by model
 
-  {FCD_CMD_APP_SET_LNA_GAIN    , TLGE_P20_0DB}, 
+static param_value all_param_defaults[]  =  {
+    // model: FCD PRO
+  {FCD_CMD_APP_SET_LNA_GAIN    , TLGE_P20_0DB},   //0
   {FCD_CMD_APP_SET_LNA_ENHANCE , TLEE_OFF},
   {FCD_CMD_APP_SET_BAND        , TBE_VHF2},
   {FCD_CMD_APP_SET_RF_FILTER   , TRFE_LPF268MHZ},
@@ -410,13 +464,25 @@ static param_value param_defaults[] = {
   {FCD_CMD_APP_SET_IF_GAIN4    , TIG4E_P0_0DB},
   {FCD_CMD_APP_SET_IF_GAIN5    , TIG5E_P3_0DB},
   {FCD_CMD_APP_SET_IF_GAIN6    , TIG6E_P3_0DB},
-   {0                           , 0}
+  {0                           , 0},  // 16
 
+  // model: FCD PRO PLUS
+
+  {FCD_CMD_APP_SET_LNA_GAIN, PP_TLGE_ON},    // 17
+  {FCD_CMD_APP_SET_RF_FILTER, PP_TRFE_125_250},
+  {FCD_CMD_APP_SET_MIXER_GAIN, PP_TMGE_ON},
+  {FCD_CMD_APP_SET_IF_GAIN1, 0},
+  {FCD_CMD_APP_SET_IF_FILTER, PP_TIFE_200KHZ},
+  {FCD_CMD_APP_SET_BIAS_TEE, PP_BTE_OFF},
+  {0, 0}
 } ;
+
+static param_value * param_defaults[] = {&all_param_defaults[0],
+					 & all_param_defaults[17]};
 
 extern FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd)
 {
-  param_value *defs = & param_defaults[0];
+  param_value *defs = param_defaults[fcd->model];
   while (defs->parm != 0) {
     if (FCD_RETCODE_OKAY != fcdAppSetParam(fcd, defs->parm, &defs->value, 1))
       return FCD_RETCODE_ERROR;

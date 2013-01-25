@@ -44,6 +44,7 @@ typedef enum {
   OPT_SET_FREQ	   = 's',
   OPT_SET_FREQ_KHZ = 'k',
   OPT_SET_PARAMS   = 'w',
+  OPT_RESET_DEV    = 'R',
   OPT_GET_PARAMS   = 'r',
   OPT_QUIET        = 'q'
 } cmds_t;
@@ -71,7 +72,8 @@ main(int argc, char **argv)
     {"setfreq",    1, 0, OPT_SET_FREQ},
     {"setfreqkHz", 1, 0, OPT_SET_FREQ_KHZ},
     {"setparams",  0, 0, OPT_SET_PARAMS},
-    {"getparams",  0, 0, OPT_SET_PARAMS},
+    {"getparams",  0, 0, OPT_GET_PARAMS},
+    {"reset",      0, 0, OPT_RESET_DEV},
     {"quiet",      0, 0, OPT_QUIET},
     {0, 0, 0, 0}
   };
@@ -80,7 +82,7 @@ main(int argc, char **argv)
 
   for (;;) {
 
-    c = getopt_long(argc, argv, "e:p:n:ldgs:k:wrq",
+    c = getopt_long(argc, argv, "e:p:n:ldgs:k:wRrq",
 		    long_options, NULL);
     if (c == -1 && have_opt)
       break;
@@ -88,11 +90,12 @@ main(int argc, char **argv)
     have_opt = 1;
     switch (c) {
     case OPT_LIST:
-      command = OPT_LIST;
-      break;
-
     case OPT_SET_DEFAULTS:
-      command = OPT_SET_DEFAULTS;
+    case OPT_GET_FREQ:
+    case OPT_RESET_DEV:
+    case OPT_SET_PARAMS:
+    case OPT_GET_PARAMS:
+      command = c;
       break;
 
     case OPT_USB_PATH:
@@ -116,18 +119,6 @@ main(int argc, char **argv)
       command = OPT_SET_FREQ_KHZ;
       break;
 
-    case OPT_GET_FREQ:
-      command = OPT_GET_FREQ;
-      break;
-
-    case OPT_SET_PARAMS:
-      command = OPT_SET_PARAMS;
-      break;
-
-    case OPT_GET_PARAMS:
-      command = OPT_GET_PARAMS;
-      break;
-
     case OPT_QUIET:
       quiet = 1;
       continue;
@@ -136,6 +127,7 @@ main(int argc, char **argv)
     default:
       printf("\nUsage: \n\n"
 	     "fcd -l   - list available funcube devices\n"
+	     "fcd -R [DEVSPEC]  - reset the funcube device\n"
 	     "fcd [-q] [DEVSPEC] -d - set default parameters\n"
 	     "fcd [DEVSPEC] -g - get and print current frequency\n"
 	     "fcd [-q] [DEVSPEC] -s freq_Hz - set frequency in Hz\n"
@@ -166,11 +158,19 @@ main(int argc, char **argv)
 	if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum)) {
 	  break;
 	}
-	printf("Model: %12s; enum: %2d; path: %d:%d\n", fcd.pszModelName, fcd.enumNum, fcd.busNum, fcd.devNum);
+	printf("Model: %12s; enum: %2d; path: %d:%d\n", fcd.pszModelName, enumNum, fcd.busNum, fcd.devNum);
 	fcdClose(&fcd);
       }	    
       exit(0);
       break;
+    case OPT_RESET_DEV:
+      if (FCD_RETCODE_OKAY != fcdResetDev(enumNum, busNum, devNum)) {
+	if (!quiet) puts("Error: unable to set reset specified FCD.");
+	exit(1);
+      }
+      if (!quiet) puts("Device has been reset.");
+      break;
+      
     default:
       break;
     }
@@ -238,10 +238,11 @@ main(int argc, char **argv)
 	for (i = 0; i < n; ++i) {
 	  uint8_t parno = get_all ? i : (uint8_t) strtol(argv[optind++], 0, 0);
 	  uint8_t parval;
-	  if (FCD_RETCODE_OKAY != fcdAppGetParam(&fcd, FCD_CMD_APP_FIRST_GET_CMD + parno, &parval, sizeof(parval))) {
-	    printf("Error: unable to get value of parameter 0x%x\n", parno);
+	  if (FCD_RETCODE_OKAY == fcdAppGetParam(&fcd, FCD_CMD_APP_FIRST_GET_CMD + parno, &parval, sizeof(parval))) {
+	    printf("0x%x 0x%x\n", parno, parval);
+	  } else {
+	    // silently ignore invalid parameter selection
 	  }
-	  printf("0x%x 0x%x\n", parno, parval);
 	}
 	fcdClose(&fcd);
 	exit(EXIT_SUCCESS);
