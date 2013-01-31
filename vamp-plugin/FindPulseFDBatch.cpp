@@ -229,7 +229,14 @@ FindPulseFDBatch::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     int num_bins = m_fft_win_size / 2 + 1;
 
-    m_freq_bin_pulse_finder = std::vector < PulseFinder < float > > (num_bins, PulseFinder < float > (m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
+    // recalc interval is set to 2^17: double mantissa is 53 bits; fourier power values
+    // are (15 bits) squared times 2 * 24 so maybe a total of 36 bits of precision, so 
+    // cumulative sums of up to 2^17 or so fourier power values should be exactly
+    // representable.  This is very conservative, but still should not raise computing
+    // costs very much:  a few hundred float adds every 131072 FFTs, and an FFT is done
+    // for every 12 samples, so this is only every 33 seconds or so per channel
+
+    m_freq_bin_pulse_finder = std::vector < PulseFinder < double > > (num_bins, PulseFinder < double > (131072, m_pf_size, m_pf_size * m_noise_win_size, m_pf_size * m_min_pulse_sep));
 
     // allocate time-domain sample buffers for each channel which are large enough to contain
     // the samples for a pulse when it has been detected.  Because pulses are not
@@ -574,10 +581,14 @@ FindPulseFDBatch::process(const float *const *inputBuffers,
                         }
                         // get the estimate of the peak beat frequency (in bin units)
                         bin_est = bin_low + cubicMaximize(pwr[0], pwr[1], pwr[2], pwr[3]);
-                        if (bin_est < 0 || bin_est > m_last_freq_bin) {
+                        if (bin_est < 0)
+			    bin_est = - bin_est;
+			if (bin_est > bin_high) {
                             // if there's  a wonky estimate, then don't use it; FIXME: is this correct?
                             bin_est = max_bin;
-                        } else if (m_channels == 2) {
+			    phase[0] = phase[1] = -1;
+                        } 
+			if (m_channels == 2) {
                             // if we have 2 channels, assume they form
                             // an I/Q pair (as for the funcubedongle),
                             // and use this to estimate the correct

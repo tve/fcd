@@ -241,7 +241,7 @@ static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data,
 				   2500);
 
   if (err || buf[0] != cmd || buf[1] != 1) {
-    if (err = -7)
+    if (err == -7)
       libusb_clear_halt (fcd->phd, FCD_SEND_COMMAND_ENDPOINT);
     return FCD_RETCODE_ERROR;
   }

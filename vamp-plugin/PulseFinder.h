@@ -27,7 +27,7 @@
 template < typename DATATYPE >
 class PulseFinder {
  public:
-  PulseFinder (size_t n = 1, size_t m = 1, size_t k = 1) :
+  PulseFinder (int recalc_interval=131072, size_t n = 1, size_t m = 1, size_t k = 1) :
     m_pulse_width(n),
     m_noise_width(m),
     m_pulse_sep(k),
@@ -43,7 +43,8 @@ class PulseFinder {
     m_noise_floor(2.511886432E-10 * 2 * m),
     m_max_probe_index (-1),
     m_got_pulse(false),
-    m_recalc_countdown(0)
+    m_recalc_countdown(recalc_interval),
+    m_recalc_interval(recalc_interval)
   {
   };
 
@@ -96,16 +97,16 @@ class PulseFinder {
     // we might need to do a full recalculation of running sums,
     // since pulse has just left the entire window.
 
-    if (m_recalc_countdown > 0) {
       -- m_recalc_countdown;
-      if (m_recalc_countdown == 0) {
+      if (m_recalc_countdown <= 0) {
+	m_recalc_countdown = m_recalc_interval;
 	m_signal = m_noise = 0.0;
 	for (int j = 0; j < m_noise_width; ++j)
 	  m_noise += m_sample_buf[j] + m_sample_buf[j + m_back];
 	for (int j = m_noise_width; j < m_back; ++j)
 	  m_signal += m_sample_buf[j];
       }
-    }
+    
 
     // Due to rounding errors, m_signal or m_noise might be negative,
     // even though incoming data are all non-negative.
@@ -153,15 +154,6 @@ class PulseFinder {
 	m_got_pulse = true;
 	m_pulse_signal = m_probe_signal_buf[m_max_probe_index];
 	m_pulse_noise = m_probe_noise_buf[m_max_probe_index];
-
-	// to prevent catastrophic roundoff error from causing
-	// spurious pulses, we set a count-down to indicate that the
-	// running sums m_signal and m_noise should be recalculated
-	// from scratch.  (Otherwise, a strong pulse coming after 
-	// moderate noise may leave cruft in m_signal or m_noise).
-	
-	m_recalc_countdown = m_pulse_sep;
-
       }
     }
   }
@@ -187,6 +179,7 @@ protected:
   DATATYPE m_pulse_signal;
   DATATYPE m_pulse_noise;
   int m_recalc_countdown;
+  int m_recalc_interval;
 };
 
 #endif //  _PULSE_FINDER_H
