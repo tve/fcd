@@ -1,0 +1,188 @@
+%ignore-case
+%define hash-function-name fcd_pro_keyword_hash
+%define lookup-function-name fcd_pro_keyword_lookup
+%{
+#include "fcd_keywords.h"
+%}
+struct fcd_keyword;
+%%
+FREQUENCY,     101
+#
+LNA_GAIN,      150
+-5.0dB,        0
+-2.5dB,        1
+0.0dB,         4
++2.5dB,        5
++5.0dB,        6
++7.5dB,        7
++10.0dB,       8
++12.5dB,       9
++15.0dB,       10
++17.5dB,       11
++20.0dB,       12
++25.0dB,       13
++30.0dB,       14
+#
+LNA_ENHANCE,   151
+OFF,           0
+0,             1
+1,             3
+2,             5
+3,             7
+#
+BAND,          152
+VHF2,          0
+VHF3,          1
+UHF,           2
+LBAND,         3
+#
+RF_FILTER,     153
+268MHz,        0
+299MHz,        8
+509MHz,        0
+656MHz,        8
+360MHz,        0
+380MHz,        1
+405MHz,        2
+425MHz,        3
+450MHz,        4
+475MHz,        5
+505MHz,        6
+540MHz,        7
+575MHz,        8
+615MHz,        9
+670MHz,        10
+720MHz,        11
+760MHz,        12
+840MHz,        13
+890MHz,        14
+970MHz,        15
+1300MHz,       0
+1320MHz,       1
+1360MHz,       2
+1410MHz,       3
+1445MHz,       4
+1460MHz,       5
+1490MHz,       6
+1530MHz,       7
+1560MHz,       8
+1590MHz,       9
+1640MHz,       10
+1660MHz,       11
+1680MHz,       12
+1700MHz,       13
+1720MHz,       14
+1750MHz,       15
+#
+MIXER_GAIN,    154
++4.0dB,        0
++12.0dB,       1
+#
+BIAS_CURRENT,  155
+LBAND,         0
+1,             1
+2,             2
+VUBAND,        3
+#
+MIXER_FILTER,  156
+27.0MHz,       0
+4.6MHz,        8
+4.2MHz,        9
+3.8MHz,        10
+3.4MHz,        11
+3.0MHz,        12
+2.7MHz,        13
+2.3MHz,        14
+1.9MHz,        15
+#
+IF_GAIN1,      157
+-3.0dB,        0
++6.0dB,        1
+#
+IF_GAIN_MODE,  158
+LINEARITY,     0
+SENSITIVITY,   1
+#
+IF_RC_FILTER,  159
+21.4MHz,       0
+21.0MHz,       1
+17.6MHz,       2
+14.7MHz,       3
+12.4MHz,       4
+10.6MHz,       5
+9.0MHz,        6
+7.7MHz,        7
+6.4MHz,        8
+5.3MHz,        9
+4.4MHz,        10
+3.4MHz,        11
+2.6MHz,        12
+1.8MHz,        13
+1.2MHz,        14
+1.0MHz,        15
+#
+IF_GAIN2,      160
+0.0dB,         0
++3.0dB,        1
++6.0dB,        2
++9.0dB,        3
+#
+IF_GAIN3,      161
+0_0dB,         0
++3_0dB,        1
++6_0dB,        2
++9_0dB,        3
+#
+IF_FILTER,     162
+5.50MHz,       0
+5.30MHz,       1
+5.00MHz,       2
+4.80MHz,       3
+4.60MHz,       4
+4.40MHz,       5
+4.30MHz,       6
+4.10MHz,       7
+3.90MHz,       8
+3.80MHz,       9
+3.70MHz,       10
+3.60MHz,       11
+3.40MHz,       12
+3.30MHz,       13
+3.20MHz,       14
+3.10MHz,       15
+3.00MHz,       16
+2.95MHz,       17
+2.90MHz,       18
+2.80MHz,       19
+2.75MHz,       20
+2.70MHz,       21
+2.60MHz,       22
+2.55MHz,       23
+2.50MHz,       24
+2.45MHz,       25
+2.40MHz,       26
+2.30MHz,       27
+2.28MHz,       28
+2.24MHz,       29
+2.20MHz,       30
+2.15MHz,       31
+#
+IF_GAIN4,      163
+0.0dB,         0
++1.0dB,        1
++2.0dB,        2
+#
+IF_GAIN5,      164
++3.0dB,        0
++6.0dB,        1
++9.0dB,        2
++12.0dB,       3
++15.0dB,       4
+#
+IF_GAIN6,      165
++3.0dB,        0
++6.0dB,        1
++9.0dB,        2
++12.0dB,       3
++15.0dB,       4
+#

@@ -3,6 +3,13 @@ LIBUSB_INCLUDE_PATH=/usr/include/libusb-1.0
 GCC_OPTIONS=-Wall -g -O2 -fpic
 all:	libfcd.a fcd semtool
 
+# generate hash functions for lookup of parameter names and value strings
+fcd_pro_keywords.c: fcd_pro_keywords.txt
+	gperf -t -D $< > $@
+
+fcd_pro_plus_keywords.c: fcd_pro_plus_keywords.txt
+	gperf -t -D $< > $@
+
 # hidraw version:
 
 # libfcd.a:	libfcd.h libfcd.c hidapi.h hid.c Makefile
