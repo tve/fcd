@@ -42,6 +42,7 @@ typedef enum {
   OPT_SET_DEFAULTS = 'd',
   OPT_GET_FREQ	   = 'g',
   OPT_SET_FREQ	   = 's',
+  OPT_SET_FREQ_MHZ = 'm',
   OPT_SET_FREQ_KHZ = 'k',
   OPT_SET_PARAMS   = 'w',
   OPT_RESET_DEV    = 'R',
@@ -71,6 +72,7 @@ main(int argc, char **argv)
     {"getfreq",    0, 0, OPT_GET_FREQ},
     {"setfreq",    1, 0, OPT_SET_FREQ},
     {"setfreqkHz", 1, 0, OPT_SET_FREQ_KHZ},
+    {"setfreqMHz", 1, 0, OPT_SET_FREQ_MHZ},
     {"setparams",  0, 0, OPT_SET_PARAMS},
     {"getparams",  0, 0, OPT_GET_PARAMS},
     {"reset",      0, 0, OPT_RESET_DEV},
@@ -82,7 +84,7 @@ main(int argc, char **argv)
 
   for (;;) {
 
-    c = getopt_long(argc, argv, "e:p:n:ldgs:k:wRrq",
+    c = getopt_long(argc, argv, "e:p:n:ldgs:k:m:wRrq",
 		    long_options, NULL);
     if (c == -1 && have_opt)
       break;
@@ -117,6 +119,14 @@ main(int argc, char **argv)
     case OPT_SET_FREQ_KHZ:
       freq = atoi(optarg);
       command = OPT_SET_FREQ_KHZ;
+      break;
+
+    case OPT_SET_FREQ_MHZ:
+      {
+        float freqMhz = atof(optarg);
+        freq = (uint32_t) (freqMhz * 1.0e6);
+        command = OPT_SET_FREQ;
+      };
       break;
 
     case OPT_QUIET:
