@@ -294,7 +294,6 @@ FindPulseFDBatch::initialise(size_t channels, size_t stepSize, size_t blockSize)
     generateWindowingCoefficients(m_plen_in_samples, m_pulse_window, ignore1, ignore2);
 
     m_probe_scale = m_channels * (m_win_s1 * m_win_s1 / 2);
-    m_min_pulse_SNR = exp10(m_min_pulse_SNR_dB / 10.0);
 
     m_dcma[0] = MovingAverager < float, float > (5 * m_fft_win_size);
     if (m_channels == 2)
@@ -420,6 +419,7 @@ FindPulseFDBatch::setParameter(string id, float value)
         FindPulseFDBatch::m_default_plen = m_plen = value;
     } else if (id == "minsnr") {
         FindPulseFDBatch::m_default_min_pulse_SNR_dB = m_min_pulse_SNR_dB = value;
+        m_min_pulse_SNR = exp10(m_min_pulse_SNR_dB / 10.0);
     } else if (id == "fftsize") {
         FindPulseFDBatch::m_default_fft_win_size = m_fft_win_size = value;
     } else if (id == "noisesize") {
