@@ -103,7 +103,7 @@ protected:
     // parameters
     float m_plen;        // length of pulse we're trying to detect, in ms
     int m_plen_in_samples; // length of pulse, measured in samples
-    float m_min_pulse_SNR_dB; // min SNR for pulse to be accepted in dB
+    float m_min_pulse_SNR; // minimum pulse power to be accepted (linear units)
     int m_fft_win_size;  // number of consecutive samples in non-overlapping FFT windows
     int m_noise_win_size; // size of noise window on each side of pulse, in multiples of pulse length
     int m_min_pulse_sep; // minimum separation between pulses, in multiples of pulse length
@@ -127,7 +127,6 @@ protected:
     fftwf_plan m_plan[2 * 2]; // FFT plans for both input phase windows on each channel
     bool m_have_fft_plan; // have FFT plans been generated?
     int m_pf_size; // size of peak finder moving average window (in units of fft windows)
-    float m_min_pulse_SNR; // minimum pulse power to be accepted (linear units)
     std::vector < Vamp::RealTime > m_last_timestamp; // timestamp of previous pulse in each frequency bin; for calculating gaps
     std::vector < float > m_window; // windowing function for sliding FFT
     std::vector < float > m_pulse_window; // windowing function for FFT on pulse candidates

@@ -142,7 +142,7 @@ FindPulseFDBatch::FindPulseFDBatch(float inputSampleRate) :
     m_stepSize(0),
     m_blockSize(0),
     m_plen(m_default_plen),
-    m_min_pulse_SNR_dB (m_default_min_pulse_SNR_dB),
+    m_min_pulse_SNR(exp10(m_default_min_pulse_SNR_dB / 10.0)),
     m_fft_win_size (m_default_fft_win_size),
     m_noise_win_size (m_default_noise_win_size),
     m_min_pulse_sep (m_default_min_pulse_sep),
@@ -397,7 +397,7 @@ FindPulseFDBatch::getParameter(string id) const
     if (id == "plen") {
         return m_plen;
     } else if (id == "minsnr") {
-        return m_min_pulse_SNR_dB;
+        return 10 * log10(m_min_pulse_SNR);
     } else if (id == "fftsize") {
         return m_fft_win_size;
     } else if (id == "noisesize") {
@@ -418,8 +418,8 @@ FindPulseFDBatch::setParameter(string id, float value)
     if (id == "plen") {
         FindPulseFDBatch::m_default_plen = m_plen = value;
     } else if (id == "minsnr") {
-        FindPulseFDBatch::m_default_min_pulse_SNR_dB = m_min_pulse_SNR_dB = value;
-        m_min_pulse_SNR = exp10(m_min_pulse_SNR_dB / 10.0);
+        FindPulseFDBatch::m_default_min_pulse_SNR_dB = value;
+        m_min_pulse_SNR = exp10(value / 10.0);
     } else if (id == "fftsize") {
         FindPulseFDBatch::m_default_fft_win_size = m_fft_win_size = value;
     } else if (id == "noisesize") {
