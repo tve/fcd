@@ -1,7 +1,7 @@
 LIBUSB_INCLUDE_PATH=/usr/include/libusb-1.0
 #GCC_LIB_OPTIONS=-fpic
 GCC_OPTIONS=-fpic -O2 -Wall 
-all:	libfcd.a fcd semtool
+all:	libfcd.a fcd
 
 libfcd.a:	libfcd.h libfcd.c Makefile
 	gcc $(GCC_OPTIONS) -c  -I$(LIBUSB_INCLUDE_PATH) -o libfcd.o libfcd.c  -lusb-1.0
