@@ -49,12 +49,13 @@ extern FCD_RETCODE_ENUM fcdShutDownLibrary() {
   return FCD_RETCODE_OKAY;
 }
 
-libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD_MODEL_ENUM *model) {
+libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD_MODEL_ENUM *model, int bcdDevice) {
   /** \brief Find FCD device.
    * \param enumNum enumeration number of device to open; 0 means first FCD, 1 means 2nd FCD, etc.
    * \param busNum bus number of device to open
    * \param devNum number of device (on bus busNum) to open
    * \param model if not NULL, a pointer to a location to store the model type if the device is found.
+   * \param bcdDevice if not 0, find the first FCD device whose bcdDevice field is this; used to find an FCD in bootloader mode
    * \return A pointer to the device, which must later be freed using libusb_unref_device(), or
    * NULL if no matching device was found.
    */
@@ -97,7 +98,7 @@ libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD
 	  break;
 	}
       } else {
-	if (enumNum == currEnumNum) {
+	if (enumNum == currEnumNum || (bcdDevice && bcdDevice == dsc.bcdDevice)) {
 	  found = device;
 	  break;
 	}
@@ -118,6 +119,7 @@ libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD
   * \param enumNum enumeration number of device to open; 0 means first FCD, 1 means 2nd FCD, etc.
   * \param busNum bus number of device to open
   * \param devNum number of device (on bus busNum) to open
+  * \param bcdDevice: if not zero, find an FCD with this bcdDevice field; can be used to find an FCD in bootloader mode
   * \return The parameter fcd, or NULL if the matching FCD was not found.
   *
   * This function looks for FCD devices connected to the computer and
@@ -125,7 +127,7 @@ libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD
   * or the enumNum'th one if busNum and devNum are 0.  Using busNum and devNum
   * provides stability of nomenclature across plugging/unplugging of other FCDs.
   */
-extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum)
+  extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum, uint16_t bcdDevice)
 { 
   if (!fcd)
     return FCD_RETCODE_ERROR;
@@ -135,7 +137,7 @@ extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, 
   fcd->phd = NULL; // assume no matching FCD found
 
   FCD_MODEL_ENUM model;
-  if (!(fcd->dev = findDevice(enumNum, busNum, devNum, & model)))
+  if (!(fcd->dev = findDevice(enumNum, busNum, devNum, & model, bcdDevice)))
     return FCD_RETCODE_ABSENT;
 
   if (libusb_open(fcd->dev, &fcd->phd)) {
@@ -163,7 +165,7 @@ extern FCD_RETCODE_ENUM fcdResetDev(uint16_t enumNum, uint8_t busNum, uint8_t de
   fcdDesc fcd;
   FCD_RETCODE_ENUM rv = FCD_RETCODE_OKAY;
 
-  if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum))
+  if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum, 0))
     return FCD_RETCODE_ERROR;
   //  if (libusb_set_configuration(fcd.phd, 1)) {
     /* try hard reset */
@@ -205,7 +207,8 @@ extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd)
     return FCD_RETCODE_OKAY;
 }
 
-static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data, uint16_t len, uint8_t *reply, uint16_t replyLen) {
+static FCD_RETCODE_ENUM fcdSendCommandExt(fcdDesc *fcd, uint8_t cmd, uint8_t *data, uint16_t len, uint8_t *reply, uint16_t replyLen, uint16_t offset, uint8_t skipRead) {
+
   uint8_t buf[64];
 
   if (!(fcd && fcd->phd))
@@ -213,7 +216,7 @@ static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data,
 
   buf[0] = cmd;
   if (data)
-    memcpy(& buf[1], data, len <= 64 ? len : 64);
+    memcpy(& buf[1 + offset], data, len <= 64 ? len : 64);
   int transferred = 0;
   int err;
 
@@ -231,7 +234,10 @@ static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data,
     return FCD_RETCODE_ERROR;
   }
 
-  //  usleep(10000);  // sleep 10 ms
+  if (skipRead)
+    return FCD_RETCODE_OKAY;
+
+  usleep(10000);  // sleep 10 ms
 
   err = libusb_interrupt_transfer (fcd->phd,
 				   FCD_RECEIVE_REPLY_ENDPOINT,
@@ -251,7 +257,11 @@ static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data,
 
   return FCD_RETCODE_OKAY;
 }
-    
+
+static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data, uint16_t len, uint8_t *reply, uint16_t replyLen) {
+  return fcdSendCommandExt(fcd, cmd, data, len, reply, replyLen, 0, 0);
+};
+   
 
 /** \brief Get FCD mode.
   * \param fcd Pointer to an FCD device descriptor 
@@ -321,7 +331,7 @@ extern FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str)
 extern FCD_RETCODE_ENUM fcdBlReset(fcdDesc *fcd)
 {
   // Send an BL reset command
-   return fcdSendCommand(fcd, FCD_CMD_BL_RESET, 0, 0, 0, 0);
+ return fcdSendCommandExt(fcd, FCD_CMD_BL_RESET, 0, 0, 0, 0, 0, 1);
 }
 
 /** \brief Reset FCD to bootloader mode.
@@ -512,5 +522,84 @@ extern FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd)
 }
 
 
-extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
-extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
+/** \brief Get start and end byte offsets for firmware from FCD.
+  * \param fcd Pointer to an FCD device descriptor 
+  * \param start Pointer to a location to receive the start byte address
+  * \param end Pointer to a location to receive the end byte address
+  * \return FCD_RETCODE_OKAY on success.
+  *
+  * This function returns the starting and ending byte offsets for FCD firmware.
+  * These are used when writing new firmware.
+  *
+  */
+extern FCD_RETCODE_ENUM fcdBlGetByteAddrRange(fcdDesc *fcd, uint32_t *start, uint32_t *end)
+{
+    unsigned char buf[64];
+    FCD_RETCODE_ENUM err = fcdSendCommand(fcd, FCD_CMD_BL_GET_BYTE_ADDR_RANGE, 0, 0, & buf[0], 64);
+    if (err)
+      return err;
+    *start = buf[0] + (buf[1] << 8) + (buf[2] << 16) + (buf[3] << 24);
+    *end = buf[4] + (buf[5] << 8) + (buf[6] << 16) + (buf[7] << 24);
+    return FCD_RETCODE_OKAY;
+}
+
+/** \brief Set byte start address for writing firmware to FCD.
+  * \param fcd Pointer to an FCD device descriptor 
+  * \param start Byte offset for writing to.
+  * \return FCD_RETCODE_OKAY on success.
+  *
+  * This function sets the starting byte address for writing FCD firmware.
+  *
+  */
+extern FCD_RETCODE_ENUM fcdBlSetByteAddr(fcdDesc *fcd, uint32_t start)
+{
+  unsigned char buf[64];
+  buf[0] = start & 0xff;
+  buf[1] = (start >> 8) & 0xff;
+  buf[2] = (start >> 16) & 0xff;;
+  buf[3] = (start >> 24) & 0xff;;
+  return fcdSendCommand(fcd, FCD_CMD_BL_SET_BYTE_ADDR, buf, 4, & buf[0], 64);
+};
+ 
+
+/** \brief Write firmware to FCD.
+  * \param fcd Pointer to an FCD device descriptor 
+  * \param pc pointer to firmware buffer
+  * \param n length of firmware to write
+  * \return FCD_RETCODE_OKAY on success.
+  *
+  */
+extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end)
+{
+  int rc = fcdBlSetByteAddr(fcd, start);
+  if (rc)
+    return rc;
+  uint32_t addr;
+  for (addr = start; addr + 31 <= end && ((addr + 31) & 0xffff) < n && ! rc; addr += 32) {
+    rc = fcdSendCommandExt(fcd, FCD_CMD_BL_WRITE_FLASH_BLOCK, &pc[addr & 0xffff], 32, 0, 0, 1, 0);
+  }
+  return rc;
+}
+
+/** \brief Verify firmware in FCD.
+  * \param fcd Pointer to an FCD device descriptor 
+  * \param pc pointer to firmware buffer
+  * \param n length of firmware to verify against.
+  * \return FCD_RETCODE_OKAY on success.
+  *
+  *
+  */
+extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end)
+{
+  unsigned char buf[64];
+  int rc = fcdBlSetByteAddr(fcd, start);
+  if (rc)
+    return rc;
+  uint32_t addr;
+  for (addr = start; addr + 47 < end &&  ((addr + 47) & 0xffff) < n && ! rc; addr += 48) {
+    rc = fcdSendCommand(fcd, FCD_CMD_BL_READ_FLASH_BLOCK, 0, 0, & buf[0], 64);
+    if (! rc || memcmp(&buf[2],&pc[addr & 0xffff],48)!=0)
+      break;
+  }
+  return rc;
+}

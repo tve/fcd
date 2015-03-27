@@ -86,7 +86,7 @@ extern "C" {
 
   /* Application functions */
 
-  extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum);
+  extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum, uint16_t bcdDevice);
   extern FCD_RETCODE_ENUM fcdResetDev(uint16_t enumNum, uint8_t busNum, uint8_t devNum);
   extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd);
   extern FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD_MODE_ENUM *pMode);
@@ -104,8 +104,11 @@ extern "C" {
   /* Bootloader functions */
   extern FCD_RETCODE_ENUM fcdBlReset(fcdDesc *fcd);
   extern FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd);
-  extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
-  extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
+  extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end);
+  extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end);
+  extern FCD_RETCODE_ENUM fcdBlGetByteAddrRange(fcdDesc *fcd, uint32_t *start, uint32_t *end);
+  extern FCD_RETCODE_ENUM fcdBlSetByteAddr(fcdDesc *fcd, uint32_t start);
+  extern FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,7 @@
 LIBUSB_INCLUDE_PATH=/usr/include/libusb-1.0
 #GCC_LIB_OPTIONS=-fpic
 GCC_OPTIONS=-Wall -g -O2 -fpic
+#GCC_OPTIONS=-Wall -g3 -fpic
 all:	libfcd.a fcd
 
 # generate hash functions for lookup of parameter names and value strings

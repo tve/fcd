@@ -4,7 +4,7 @@
  *  Copyright (C) 2010  Howard Long, G6LVB
  *  Copyright (C) 2011  Alexandru Csete, OZ9AEC
  *                      Mario Lorenz, DL5MLO
- *  Copyright (C) 2012  John Brzustowski
+ *  Copyright (C) 2012-2015  John Brzustowski
  * 
  *  libfcd is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,12 +32,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 typedef enum {
   OPT_NONE,
   OPT_SERNUM	   = 'n',
   OPT_APPMODE      = 'a',
   OPT_BLMODE       = 'b',
+  OPT_FIRMWARE     = 'f',
   OPT_USB_PATH     = 'p',
   OPT_ENUMNUM	   = 'e',
   OPT_LIST	   = 'l',
@@ -64,10 +68,12 @@ main(int argc, char **argv)
   int devOpen = 0;
   uint8_t busNum = 0;
   uint8_t devNum = 0;
+  char *firmware_path = 0;
 
   static struct option long_options[] = {
     {"appmode",    0, 0, OPT_APPMODE},
     {"blmode",     0, 0, OPT_BLMODE},
+    {"firmware",   1, 0, OPT_FIRMWARE},
     {"serialnum",  1, 0, OPT_SERNUM},
     {"path",       1, 0, OPT_USB_PATH},
     {"enumnum",    1, 0, OPT_ENUMNUM},
@@ -88,7 +94,7 @@ main(int argc, char **argv)
 
   for (;;) {
 
-    c = getopt_long(argc, argv, "abe:p:n:ldgs:k:m:wRrq",
+    c = getopt_long(argc, argv, "abe:f:p:n:ldgs:k:m:wRrq",
 		    long_options, NULL);
     if (c == -1 && have_opt)
       break;
@@ -104,6 +110,11 @@ main(int argc, char **argv)
     case OPT_SET_PARAMS:
     case OPT_GET_PARAMS:
       command = c;
+      break;
+
+    case OPT_FIRMWARE:
+      command = OPT_FIRMWARE;
+      firmware_path = optarg;
       break;
 
     case OPT_USB_PATH:
@@ -144,6 +155,9 @@ main(int argc, char **argv)
       printf("\nUsage: \n\n"
 	     "fcd -l   - list available funcube devices\n"
 	     "fcd -R [DEVSPEC]  - reset the funcube device\n"
+	     "fcd -b [DEVSPEC]  - set the funcube into bootloader mode\n"
+	     "fcd -a [DEVSPEC]  - set the funcube into application mode\n"
+	     "fcd [DEVSPEC] -f FIRMWAREFILE - upload new firmware to the funcubedongle\n"
 	     "fcd [-q] [DEVSPEC] -d - set default parameters\n"
 	     "fcd [DEVSPEC] -g - get and print current frequency\n"
 	     "fcd [-q] [DEVSPEC] -s freq_Hz - set frequency in Hz\n"
@@ -171,7 +185,7 @@ main(int argc, char **argv)
     case OPT_LIST:
       puts("These FCDs found:");
       for (enumNum=0;/**/ ; ++enumNum) {
-	if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum)) {
+	if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum, 0)) {
 	  break;
 	}
 	printf("Model: %12s; enum: %2d; path: %d:%d\n", fcd.pszModelName, enumNum, fcd.busNum, fcd.devNum);
@@ -190,7 +204,7 @@ main(int argc, char **argv)
     default:
       break;
     }
-    if (!devOpen && FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum)) {
+    if (!devOpen && FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum, 0)) {
       if (!quiet) puts("Error: unable to open specified FCD.");
       exit(1);
     }
@@ -283,7 +297,70 @@ main(int argc, char **argv)
       }
       break;
 
-	  
+    case OPT_FIRMWARE:
+      {
+        struct stat finfo;
+        if (stat(firmware_path, &finfo)) {
+          printf("Error: unable to locate firmware file '%s'\n", firmware_path);
+          exit(2);
+        }
+        unsigned char *fwbuf = (unsigned char *) calloc(1, finfo.st_size);
+        if (!fwbuf) {
+          printf("Error: unable to allocate %ld bytes for loading firmware '%s'.\n", finfo.st_size, firmware_path);
+          exit(3);
+        }
+        FILE *f = fopen(firmware_path, "rb");
+        if ((!f) || 1 != fread(fwbuf, finfo.st_size, 1, f)) {
+          printf("Error: unable to read firmware from file '%s'.\n", firmware_path);
+          if (f)
+            fclose(f);
+          exit(3);
+        }
+        fclose(f);
+
+        if (FCD_RETCODE_OKAY != fcdAppReset(&fcd)) {
+          puts("Error: unable to switch specified FCD to bootloader mode.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+
+        sleep(3);  // sleep 3; seems to take this long for device to get re-enumerated.
+        
+        if (FCD_RETCODE_OKAY != fcdOpen(&fcd, -1, 0, 0, 0x01)) {
+          puts("Error: unable to re-open FCD that was switched to bootloader mode.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+
+        uint32_t start, end;
+        if (FCD_RETCODE_OKAY != fcdBlGetByteAddrRange(&fcd, &start, &end)) {
+          puts("Error: unable to get byte address range from FCD.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+        if (FCD_RETCODE_OKAY != fcdBlErase(&fcd)) {
+          puts("Error: unable to erase firmware on FCD.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+        if (FCD_RETCODE_OKAY != fcdBlWriteFirmware(&fcd, fwbuf, finfo.st_size, start, end)) {
+          puts("Error: unable to write firmware to FCD.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+        if (FCD_RETCODE_OKAY != fcdBlVerifyFirmware(&fcd, fwbuf, finfo.st_size, start, end)) {
+          puts("Error: unable to verify firmware on FCD.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+        if (FCD_RETCODE_OKAY != fcdBlReset(&fcd)) {
+          puts("Error: unable to switch reflashed FCD back to application mode.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+      }
+      break;
+
     default:
       break;
     }
