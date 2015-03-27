@@ -36,6 +36,8 @@
 typedef enum {
   OPT_NONE,
   OPT_SERNUM	   = 'n',
+  OPT_APPMODE      = 'a',
+  OPT_BLMODE       = 'b',
   OPT_USB_PATH     = 'p',
   OPT_ENUMNUM	   = 'e',
   OPT_LIST	   = 'l',
@@ -64,6 +66,8 @@ main(int argc, char **argv)
   uint8_t devNum = 0;
 
   static struct option long_options[] = {
+    {"appmode",    0, 0, OPT_APPMODE},
+    {"blmode",     0, 0, OPT_BLMODE},
     {"serialnum",  1, 0, OPT_SERNUM},
     {"path",       1, 0, OPT_USB_PATH},
     {"enumnum",    1, 0, OPT_ENUMNUM},
@@ -84,13 +88,15 @@ main(int argc, char **argv)
 
   for (;;) {
 
-    c = getopt_long(argc, argv, "e:p:n:ldgs:k:m:wRrq",
+    c = getopt_long(argc, argv, "abe:p:n:ldgs:k:m:wRrq",
 		    long_options, NULL);
     if (c == -1 && have_opt)
       break;
 
     have_opt = 1;
     switch (c) {
+    case OPT_APPMODE:
+    case OPT_BLMODE:
     case OPT_LIST:
     case OPT_SET_DEFAULTS:
     case OPT_GET_FREQ:
@@ -192,6 +198,24 @@ main(int argc, char **argv)
     int actualFreq = 0;
 
     switch(command) {
+    case OPT_APPMODE:
+      if (FCD_RETCODE_OKAY != fcdBlReset(&fcd)) {
+	puts("Error: unable to switch specified FCD to application mode.");
+	fcdClose(&fcd);
+	exit(1);
+      }
+      puts("FCD switched to application mode\n");
+      break;
+
+    case OPT_BLMODE:
+      if (FCD_RETCODE_OKAY != fcdAppReset(&fcd)) {
+	puts("Error: unable to switch specified FCD to bootloader mode.");
+	fcdClose(&fcd);
+	exit(1);
+      }
+      puts("FCD switched to bootloader mode\n");
+      break;
+      
     case OPT_GET_FREQ:
       if (FCD_RETCODE_OKAY != fcdAppGetFreq(&fcd, &freq)) {
 	puts("Error: unable to get frequency for specified FCD.");

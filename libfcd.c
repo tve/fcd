@@ -231,7 +231,7 @@ static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data,
     return FCD_RETCODE_ERROR;
   }
 
-  usleep(10000);  // sleep 10 ms
+  //  usleep(10000);  // sleep 10 ms
 
   err = libusb_interrupt_transfer (fcd->phd,
 				   FCD_RECEIVE_REPLY_ENDPOINT,
@@ -490,3 +490,27 @@ extern FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd)
   }
   return FCD_RETCODE_OKAY;
 }
+
+/** \brief Erase firmware from FCD.
+  * \param fcd Pointer to an FCD device descriptor 
+  * \return FCD_RETCODE_OKAY on success.
+  *
+  * This function deletes the firmware from the FCD. This is required
+  * before writing new firmware into the FCD.
+  *
+  * \sa fcdBlWriteFirmware
+  */
+extern FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd)
+{
+    unsigned char buf[64];
+
+    FCD_RETCODE_ENUM err = fcdSendCommand(fcd, FCD_CMD_BL_ERASE, 0, 0, & buf[0], 64);
+
+    if (err)
+      return err;
+    return FCD_RETCODE_OKAY;
+}
+
+
+extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
+extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);

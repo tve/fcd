@@ -103,6 +103,9 @@ extern "C" {
 
   /* Bootloader functions */
   extern FCD_RETCODE_ENUM fcdBlReset(fcdDesc *fcd);
+  extern FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd);
+  extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
+  extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, char *pc, int64_t n64Size);
 
 #ifdef __cplusplus
 }
