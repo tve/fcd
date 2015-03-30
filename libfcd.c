@@ -314,11 +314,30 @@ extern FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str)
     if (err)
       return err;
     if (strncmp((char *)buf, "FCDAPP", 6) == 0) {
-      strncpy(str, (char*) &buf[7], 5);
-      str[5] = 0;
+      strncpy(str, (char*) &buf[7], 64);
+      str[64] = 0;
       return FCD_RETCODE_OKAY;
     }
     return FCD_RETCODE_ERROR;
+}
+
+/** \brief Get FCD firmware version as string.
+  * \param fcd Pointer to an FCD device descriptor 
+  * \param str The returned vesion number as a 0 terminated string (must be pre-allocated)
+  * \param n The maximum number of characters to return in the version string.
+  * \return The current FCD mode.
+  * \sa FCD_RETCODE_ENUM
+  */
+extern FCD_RETCODE_ENUM fcdGetFwVerStrExt(fcdDesc *fcd, unsigned char *str, int n)
+{
+    struct libusb_device_descriptor des;
+
+    if (!str)
+	return FCD_RETCODE_ERROR;
+
+    libusb_get_device_descriptor(fcd->dev, &des);
+    libusb_get_string_descriptor_ascii(fcd->phd, des.iProduct,  str, n);
+    return FCD_RETCODE_OKAY;
 }
 
 /** \brief Reset FCD to application mode.

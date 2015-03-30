@@ -53,6 +53,7 @@ typedef enum {
   OPT_SET_PARAMS   = 'w',
   OPT_RESET_DEV    = 'R',
   OPT_GET_PARAMS   = 'r',
+  OPT_GET_VERSION  = 'v',
   OPT_QUIET        = 'q'
 } cmds_t;
 
@@ -86,6 +87,7 @@ main(int argc, char **argv)
     {"setparams",  0, 0, OPT_SET_PARAMS},
     {"getparams",  0, 0, OPT_GET_PARAMS},
     {"reset",      0, 0, OPT_RESET_DEV},
+    {"version",    0, 0, OPT_GET_VERSION},
     {"quiet",      0, 0, OPT_QUIET},
     {0, 0, 0, 0}
   };
@@ -94,7 +96,7 @@ main(int argc, char **argv)
 
   for (;;) {
 
-    c = getopt_long(argc, argv, "abe:f:p:n:ldgs:k:m:wRrq",
+    c = getopt_long(argc, argv, "abe:f:p:n:ldgs:k:m:wRrqv",
 		    long_options, NULL);
     if (c == -1 && have_opt)
       break;
@@ -109,6 +111,7 @@ main(int argc, char **argv)
     case OPT_RESET_DEV:
     case OPT_SET_PARAMS:
     case OPT_GET_PARAMS:
+    case OPT_GET_VERSION:
       command = c;
       break;
 
@@ -155,9 +158,10 @@ main(int argc, char **argv)
       printf("\nUsage: \n\n"
 	     "fcd -l   - list available funcube devices\n"
 	     "fcd -R [DEVSPEC]  - reset the funcube device\n"
+	     "fcd -v [DEVSPEC]  - get the funcube firmware version\n"
+	     "fcd [DEVSPEC] -f FIRMWAREFILE - upload new firmware to the funcubedongle\n"
 	     "fcd -b [DEVSPEC]  - set the funcube into bootloader mode\n"
 	     "fcd -a [DEVSPEC]  - set the funcube into application mode\n"
-	     "fcd [DEVSPEC] -f FIRMWAREFILE - upload new firmware to the funcubedongle\n"
 	     "fcd [-q] [DEVSPEC] -d - set default parameters\n"
 	     "fcd [DEVSPEC] -g - get and print current frequency\n"
 	     "fcd [-q] [DEVSPEC] -s freq_Hz - set frequency in Hz\n"
@@ -230,6 +234,17 @@ main(int argc, char **argv)
       puts("FCD switched to bootloader mode\n");
       break;
       
+    case OPT_GET_VERSION:
+      {
+        unsigned char fwversion[128];
+        if (FCD_RETCODE_OKAY != fcdGetFwVerStrExt(&fcd, fwversion, 128)) {
+          puts("Error: unable to get firmware version for specified FCD.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+        printf("%s\n", fwversion);
+      }
+      break;
     case OPT_GET_FREQ:
       if (FCD_RETCODE_OKAY != fcdAppGetFreq(&fcd, &freq)) {
 	puts("Error: unable to get frequency for specified FCD.");

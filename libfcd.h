@@ -91,6 +91,7 @@ extern "C" {
   extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd);
   extern FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD_MODE_ENUM *pMode);
   extern FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str);
+  extern FCD_RETCODE_ENUM fcdGetFwVerStrExt(fcdDesc *fcd, unsigned char *str, int n);
   extern FCD_RETCODE_ENUM fcdAppReset(fcdDesc *fcd);
   extern FCD_RETCODE_ENUM fcdAppSetFreqkHz(fcdDesc *fcd, int nFreq);
   extern FCD_RETCODE_ENUM fcdAppSetFreq(fcdDesc *fcd, uint32_t nFreq, uint32_t * actualFreq);
