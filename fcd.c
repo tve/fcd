@@ -34,6 +34,7 @@
 #include <getopt.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 typedef enum {
@@ -56,6 +57,15 @@ typedef enum {
   OPT_GET_VERSION  = 'v',
   OPT_QUIET        = 'q'
 } cmds_t;
+
+static int lock_fd = 0; /* used when locking an fcd specified by usb bus, dev numbers */
+
+void release_lock (void) {
+  if (lock_fd) {
+    flock(lock_fd, LOCK_UN);
+    close(lock_fd);
+  }
+};
 
 int
 main(int argc, char **argv)
@@ -121,10 +131,23 @@ main(int argc, char **argv)
       break;
 
     case OPT_USB_PATH:
-      if (2 != sscanf(optarg, "%hhd:%hhd", &busNum, &devNum)) {
-	puts("Error: path must be busNum:devNum\n");
-	exit(1);
-      }
+      {
+        if (2 != sscanf(optarg, "%hhd:%hhd", &busNum, &devNum)) {
+          puts("Error: path must be busNum:devNum\n");
+          exit(1);
+        }
+        /* in this case, we try locking the USB device */
+        char lock_file_name[32];
+        sprintf(lock_file_name, "/var/lock/fcd_%d_%d", busNum, devNum);
+        FILE *fl = fopen(lock_file_name, "w");
+        lock_fd = fileno(fl);
+        if (flock(fileno(fl), LOCK_EX | LOCK_NB)) {
+          puts("Error: could not lock usb device.\n");
+          close(lock_fd);
+          exit(1);
+        }
+        atexit(release_lock);
+      };
       break;
 
     case OPT_ENUMNUM:
