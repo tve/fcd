@@ -160,25 +160,32 @@ libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD
   return rv;
 }
 
-extern FCD_RETCODE_ENUM fcdResetDev(uint16_t enumNum, uint8_t busNum, uint8_t devNum)
+extern FCD_RETCODE_ENUM fcdResetDev(fcdDesc *existingFcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum)
 {
   fcdDesc fcd;
+  fcdDesc *useFcd;
+
   FCD_RETCODE_ENUM rv = FCD_RETCODE_OKAY;
 
-  if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum, 0))
-    return FCD_RETCODE_ERROR;
-  //  if (libusb_set_configuration(fcd.phd, 1)) {
-    /* try hard reset */
-    int kernel_owns = libusb_kernel_driver_active(fcd.phd, FCD_STREAMING_INTERFACE);
-    if (kernel_owns == 1)
-      libusb_detach_kernel_driver(fcd.phd, FCD_STREAMING_INTERFACE);
-    libusb_claim_interface(fcd.phd, FCD_STREAMING_INTERFACE);
-    libusb_set_interface_alt_setting(fcd.phd, FCD_STREAMING_INTERFACE, FCD_STREAMING_INTERFACE_SETTING_OFF);
-    libusb_release_interface(fcd.phd, FCD_STREAMING_INTERFACE);
-    if (libusb_reset_device(fcd.phd))
-      rv = FCD_RETCODE_ERROR;
-    //  }
-  fcdClose(&fcd);
+  if (!existingFcd) {
+    if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum, 0))
+      return FCD_RETCODE_ERROR;
+    useFcd = &fcd;
+  } else {
+    useFcd = existingFcd;
+  };
+
+  /* try hard reset */
+  int kernel_owns = libusb_kernel_driver_active(useFcd->phd, FCD_STREAMING_INTERFACE);
+  if (kernel_owns == 1)
+    libusb_detach_kernel_driver(useFcd->phd, FCD_STREAMING_INTERFACE);
+  libusb_claim_interface(useFcd->phd, FCD_STREAMING_INTERFACE);
+  libusb_set_interface_alt_setting(useFcd->phd, FCD_STREAMING_INTERFACE, FCD_STREAMING_INTERFACE_SETTING_OFF);
+  libusb_release_interface(useFcd->phd, FCD_STREAMING_INTERFACE);
+  if (libusb_reset_device(useFcd->phd))
+    rv = FCD_RETCODE_ERROR;
+  if (!existingFcd)
+    fcdClose(useFcd);
   return rv;
 }
 

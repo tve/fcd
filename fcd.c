@@ -198,7 +198,7 @@ main(int argc, char **argv)
       exit(0);
       break;
     case OPT_RESET_DEV:
-      if (FCD_RETCODE_OKAY != fcdResetDev(enumNum, busNum, devNum)) {
+      if (FCD_RETCODE_OKAY != fcdResetDev(0, enumNum, busNum, devNum)) {
 	if (!quiet) puts("Error: unable to set reset specified FCD.");
 	exit(1);
       }
@@ -370,6 +370,11 @@ main(int argc, char **argv)
         }
         if (FCD_RETCODE_OKAY != fcdBlReset(&fcd)) {
           puts("Error: unable to switch reflashed FCD back to application mode.");
+          fcdClose(&fcd);
+          exit(1);
+        }
+        if (FCD_RETCODE_OKAY != fcdResetDev(&fcd, 0, 0, 0)) {
+          puts("Error: unable to reset reflashed FCD back.");
           fcdClose(&fcd);
           exit(1);
         }

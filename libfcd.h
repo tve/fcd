@@ -87,7 +87,7 @@ extern "C" {
   /* Application functions */
 
   extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum, uint16_t bcdDevice);
-  extern FCD_RETCODE_ENUM fcdResetDev(uint16_t enumNum, uint8_t busNum, uint8_t devNum);
+  extern FCD_RETCODE_ENUM fcdResetDev(fcdDesc *existingFcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum);
   extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd);
   extern FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD_MODE_ENUM *pMode);
   extern FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str);
