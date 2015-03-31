@@ -140,6 +140,11 @@ main(int argc, char **argv)
         char lock_file_name[32];
         sprintf(lock_file_name, "/var/lock/fcd_%d_%d", busNum, devNum);
         FILE *fl = fopen(lock_file_name, "w");
+        if (!fl) {
+          puts("Error: could not open usb device lockfile.\n");
+          close(lock_fd);
+          exit(1);
+        }
         lock_fd = fileno(fl);
         if (flock(fileno(fl), LOCK_EX | LOCK_NB)) {
           puts("Error: could not lock usb device.\n");
