@@ -334,16 +334,17 @@ main(int argc, char **argv)
         fclose(f);
 
         if (FCD_RETCODE_OKAY != fcdAppReset(&fcd)) {
+#ifdef CAREFUL_FW_UPDATE
           puts("Error: unable to switch specified FCD to bootloader mode.");
           fcdClose(&fcd);
           exit(1);
+#endif
         }
 
         sleep(3);  // sleep 3; seems to take this long for device to get re-enumerated.
         
         if (FCD_RETCODE_OKAY != fcdOpen(&fcd, -1, 0, 0, 0x01)) {
           puts("Error: unable to re-open FCD that was switched to bootloader mode.");
-          fcdClose(&fcd);
           exit(1);
         }
 
@@ -354,9 +355,11 @@ main(int argc, char **argv)
           exit(1);
         }
         if (FCD_RETCODE_OKAY != fcdBlErase(&fcd)) {
+#ifdef CAREFUL_FW_UPDATE
           puts("Error: unable to erase firmware on FCD.");
           fcdClose(&fcd);
           exit(1);
+#endif
         }
         if (FCD_RETCODE_OKAY != fcdBlWriteFirmware(&fcd, fwbuf, finfo.st_size, start, end)) {
           puts("Error: unable to write firmware to FCD.");
