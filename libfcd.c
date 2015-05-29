@@ -592,17 +592,19 @@ extern FCD_RETCODE_ENUM fcdBlSetByteAddr(fcdDesc *fcd, uint32_t start)
   * \param fcd Pointer to an FCD device descriptor 
   * \param pc pointer to firmware buffer
   * \param n length of firmware to write
+  * \param start, end: start and end firmware addresses
+  * \param chunkSize: size of chunks to write at a time. 32 for FCD Pro Plus, 48 for FCD Pro.
   * \return FCD_RETCODE_OKAY on success.
   *
   */
-extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end)
+extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end, uint16_t chunkSize)
 {
   int rc = fcdBlSetByteAddr(fcd, start);
   if (rc)
     return rc;
   uint32_t addr;
-  for (addr = start; addr + 31 <= end && ((addr + 31) & 0xffff) < n && ! rc; addr += 32) {
-    rc = fcdSendCommandExt(fcd, FCD_CMD_BL_WRITE_FLASH_BLOCK, &pc[addr & 0xffff], 32, 0, 0, 1, 0);
+  for (addr = start; addr + chunkSize - 1 <= end && ((addr + chunkSize - 1) & 0xffff) < n && ! rc; addr += chunkSize) {
+    rc = fcdSendCommandExt(fcd, FCD_CMD_BL_WRITE_FLASH_BLOCK, &pc[addr & 0xffff], chunkSize, 0, 0, 1, 0);
   }
   return rc;
 }
@@ -629,3 +631,7 @@ extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, unsigned char *pc, int
   }
   return rc;
 }
+
+
+
+

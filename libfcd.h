@@ -105,12 +105,12 @@ extern "C" {
   /* Bootloader functions */
   extern FCD_RETCODE_ENUM fcdBlReset(fcdDesc *fcd);
   extern FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd);
-  extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end);
+  extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end, uint16_t chunkSize);
   extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, unsigned char *pc, int n, uint32_t start, uint32_t end);
   extern FCD_RETCODE_ENUM fcdBlGetByteAddrRange(fcdDesc *fcd, uint32_t *start, uint32_t *end);
   extern FCD_RETCODE_ENUM fcdBlSetByteAddr(fcdDesc *fcd, uint32_t start);
   extern FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd);
-
+ 
 #ifdef __cplusplus
 }
 #endif
