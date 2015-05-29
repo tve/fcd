@@ -389,6 +389,13 @@ main(int argc, char **argv)
           exit(1);
 #endif
         }
+        if (FCD_RETCODE_OKAY != fcdBlSetByteAddr(&fcd, start)) {
+#ifdef CAREFUL_FW_UPDATE
+          puts("Error: unable to set byte address on FCD.");
+          fcdClose(&fcd);
+          exit(1);
+#endif
+        }
         if (FCD_RETCODE_OKAY != fcdBlWriteFirmware(&fcd, fwbuf, finfo.st_size, start, end, fcd.model == FCD_MODEL_PRO ? 48 : 32)) {
           puts("Error: unable to write firmware to FCD.");
           fcdClose(&fcd);
