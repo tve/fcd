@@ -20,3 +20,9 @@ fcd: libfcd.a fcd.c Makefile
 
 install: fcd
 	su -c 'cp fcd /usr/bin'
+
+fcdsrv: libfcd.a fcdsrv.o
+	g++ $(GPP_OPTS) -I$(LIBUSB_INCLUDE_PATH) -o $@ fcdsrv.o -L. -lfcd -lusb-1.0 -lboost_system
+
+fcdsrv.o: fcdsrv.cpp
+	g++ -c -std=c++0x -o $@ $< -I websocketpp -I rapidjson/include
