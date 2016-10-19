@@ -63,10 +63,11 @@ fcdStatus Reply from ClientTuner
                             ## indicating a problem was encountered.
                             ## values so far:
                             ##   "noFCD": no funcubedongle found
-                            ##   "fcdBricked": funcubedongle is stuck in bootloader mode
-                            ##   "multipleFCD": more than one funcubedongle is plugged in
-                            ##   "unknown": some other error condition
+                            ##   "noFirmwareVersion": unable to get firmware version; funcubedongle bricked?
+                            ##   "freqSetFailure": unable to set frequency; maybe funcubedongle is stuck in bootloader mode
      "freqMHz": 166.38,     ## actual frequency funcube was set to 
+     "model": "FCD Pro",    ## model name; either this or "FCD Pro Plus"
+     "firmware": "FUNcube Dongle V2.034", ## or one of several other possibilities
      "sampRate": 48000      ## sampling rate of funcube, Hz
    }
 

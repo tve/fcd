@@ -58,16 +58,16 @@ void on_message(server* s, websocketpp::connection_hdl hdl, message_ptr msg) {
     uint32_t actualFreq = 0;
 
     if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum, 0)) {
-      throw std::runtime_error("No funcubedongle found");
+      throw std::runtime_error("noFCD");
     }
     unsigned char fwversion[128];
     if (FCD_RETCODE_OKAY != fcdGetFwVerStrExt(&fcd, fwversion, 128)) {
       fcdClose(&fcd);
-      throw std::runtime_error("Unable to get firmware version for funcubedongle");
+      throw std::runtime_error("noFirmwareVersion");
     }
     if (FCD_RETCODE_OKAY != fcdAppSetFreq(&fcd, f * 1e6, (uint32_t *)&actualFreq)) {
       fcdClose(&fcd);
-      throw std::runtime_error(std::string("Unable to set funcubedongle frequency to ") + std::to_string(f) + "MHz");
+      throw std::runtime_error(std::string("freqSetFailure"));
     }
     /* this is a pain in the ass library to use
     rapidjson::Document json_reply;
@@ -95,10 +95,10 @@ void on_message(server* s, websocketpp::connection_hdl hdl, message_ptr msg) {
     else if (0 == fw.compare("FUNcube Dongle V2.0  "))
       rate = 192000;
 
-    reply = "{\"actualFreq\":" + std::to_string(actualFreq / 1e6) + ",\"model\":\"" + std::string(fcd.pszModelName) + "\",\"firmware\":\"" + fw + "\", \"rate\":" + std::to_string(rate) + "}";
+    reply = "{\"error\":\"\",\"freqMHz\":" + std::to_string(actualFreq / 1e6) + ",\"model\":\"" + std::string(fcd.pszModelName) + "\",\"firmware\":\"" + fw + "\", \"sampRate\":" + std::to_string(rate) + "}";
     fcdClose(&fcd);
   } catch (std::runtime_error e) {
-    reply = std::string(e.what());
+    reply = "{\"error\":\"" + std::string(e.what()) + "\"}";
   }
   try {
     s->send(hdl, reply, msg->get_opcode());
