@@ -52,7 +52,7 @@ void on_message(server* s, websocketpp::connection_hdl hdl, message_ptr msg) {
     // look for a funcubedongle, get sampling rate and firmware version,
     // and set the frequency.
     fcdDesc fcd;
-    int enumNum;
+    int enumNum = 0;
     uint8_t busNum = 0;
     uint8_t devNum = 0;
     uint32_t actualFreq = 0;
@@ -69,15 +69,34 @@ void on_message(server* s, websocketpp::connection_hdl hdl, message_ptr msg) {
       fcdClose(&fcd);
       throw std::runtime_error(std::string("Unable to set funcubedongle frequency to ") + std::to_string(f) + "MHz");
     }
-    fcdClose(&fcd);
+    /* this is a pain in the ass library to use
     rapidjson::Document json_reply;
-    std::string model(fcd.pszModelName);
-    json_reply["MHz"] = actualFreq / 1000.0;
-    json_reply["model"].SetString(model.c_str(), model.length());
+    rapidjson::Value afreq(actualFreq / 1000.0);
+    json_reply.AddMember("MHz", afreq, json_reply.GetAllocator());
+    rapidjson::Value model; model.SetString(fcd.pszModelName, strlen(fcd.pszModelName));
+    json_reply.AddMember("model", model, json_reply.GetAllocator()); //, strlen((const char *)fcd.pszModelName));
+    rapidjson::Value version; version.SetString(fwversion, strlen(fwversion)));
+    json_reply.AddMember("firmware", version, json_reply.GetAllocator()); //.SetString((const char *)fwversion, strlen((const char *)fwversion));
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     json_reply.Accept(writer);
     reply = buffer.GetString();
+    */
+    std::string fw((char *)fwversion);
+    int rate = 96000;
+    if (0 == fw.compare("FUNcube Dongle V0.0BL")) 
+      rate = 0;
+    else if (0 == fw.compare("FUNcube Dongle V2.034"))
+      rate = 48000;
+    else if (0 == fw.compare("FUNcube Dongle V1.0  "))
+      rate = 96000;
+    else if (0 == fw.compare("FUNcube Dongle V2.039"))
+      rate = 96000;
+    else if (0 == fw.compare("FUNcube Dongle V2.0  "))
+      rate = 192000;
+
+    reply = "{\"actualFreq\":" + std::to_string(actualFreq / 1e6) + ",\"model\":\"" + std::string(fcd.pszModelName) + "\",\"firmware\":\"" + fw + "\", \"rate\":" + std::to_string(rate) + "}";
+    fcdClose(&fcd);
   } catch (std::runtime_error e) {
     reply = std::string(e.what());
   }
