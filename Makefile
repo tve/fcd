@@ -7,6 +7,7 @@ GPP_OPTIONS=-Wall -g3  -std=c++0x
 WINGPP=i686-w64-mingw32-g++
 WINGCC=i686-w64-mingw32-gcc
 WINAR=i686-w64-mingw32-ar
+WINSTRIP=i686-w64-mingw32-strip
 
 all:	libfcd.a fcd
 
@@ -47,5 +48,6 @@ libwinfcd.a:	libfcd.h libfcd.c Makefile
 winfcdsrv.o: fcdsrv.cpp
 	$(WINGPP) -c $(GPP_OPTIONS) -DWIN32 -o $@ $< -I$(LIBUSB_INCLUDE_PATH) -I websocketpp -I rapidjson/include
 
-winfcdsrv: libwinfcd.a winfcdsrv.o
-	$(WINGPP) $(GPP_OPTS) -I$(LIBUSB_INCLUDE_PATH) -o $@ winfcdsrv.o -L. -lwinfcd -Llibusb/MinGW64/static -lusb-1.0 -Lboost_1_54_0/bin.v2/libs/system/build/gcc-mingw-mingw/release/link-static/threading-multi/ -lboost_system
+winfcdsrv.exe: libwinfcd.a winfcdsrv.o
+	$(WINGPP) $(GPP_OPTS) -static -I$(LIBUSB_INCLUDE_PATH) -o $@ winfcdsrv.o -L. -lwinfcd -Llibusb/MinGW32/static -lusb-1.0 -Lboost_1_54_0/bin.v2/libs/system/build/gcc-mingw-mingw/release/link-static/threading-multi/ -lboost_system -lwsock32 -lmswsock -lwinusb -lws2_32
+	$(WINSTRIP) $@
