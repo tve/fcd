@@ -1,11 +1,11 @@
 /***************************************************************************
  *  This file is part of libfcd
- * 
+ *
  *  Copyright (C) 2010  Howard Long, G6LVB
  *  Copyright (C) 2011  Alexandru Csete, OZ9AEC
  *                      Mario Lorenz, DL5MLO
  *  Copyright (C) 2012  John Brzustowski
- * 
+ *
  *  libfcd is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
@@ -74,7 +74,7 @@ libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD
     return 0;
 
   FCD_MODEL_ENUM mod;
-    
+
   for (i = 0; i < cnt; i++) {
     libusb_device *device = list[i];
     struct libusb_device_descriptor dsc;
@@ -128,7 +128,7 @@ libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD
   * provides stability of nomenclature across plugging/unplugging of other FCDs.
   */
   extern FCD_RETCODE_ENUM fcdOpen(fcdDesc *fcd, uint16_t enumNum, uint8_t busNum, uint8_t devNum, uint16_t bcdDevice)
-{ 
+{
   if (!fcd)
     return FCD_RETCODE_ERROR;
 
@@ -145,7 +145,7 @@ libusb_device *findDevice (uint16_t enumNum, uint8_t busNum, uint8_t devNum, FCD
   } else {
     int kernel_owns = libusb_kernel_driver_active(fcd->phd, FCD_SETTINGS_INTERFACE);
     if (kernel_owns < 0
-	|| (kernel_owns == 1 && libusb_detach_kernel_driver(fcd->phd, FCD_SETTINGS_INTERFACE) != 0) 
+	|| (kernel_owns == 1 && libusb_detach_kernel_driver(fcd->phd, FCD_SETTINGS_INTERFACE) != 0)
 	|| libusb_claim_interface(fcd->phd, FCD_SETTINGS_INTERFACE) != 0) {
       libusb_close(fcd->phd);
       rv = FCD_RETCODE_ERROR;
@@ -191,7 +191,7 @@ extern FCD_RETCODE_ENUM fcdResetDev(fcdDesc *existingFcd, uint16_t enumNum, uint
 
 
 /** \brief Close FCD HID device.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   */
 extern FCD_RETCODE_ENUM fcdClose(fcdDesc *fcd)
 {
@@ -268,10 +268,10 @@ static FCD_RETCODE_ENUM fcdSendCommandExt(fcdDesc *fcd, uint8_t cmd, uint8_t *da
 static FCD_RETCODE_ENUM fcdSendCommand(fcdDesc *fcd, uint8_t cmd, uint8_t *data, uint16_t len, uint8_t *reply, uint16_t replyLen) {
   return fcdSendCommandExt(fcd, cmd, data, len, reply, replyLen, 0, 0);
 };
-   
+
 
 /** \brief Get FCD mode.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param pMode Pointer to a pre-allocated FCD_MODE_ENUM field. in which the current mode is returned.
   * \return Return code.
   * \sa FCD_RETCODE_ENUM
@@ -304,7 +304,7 @@ extern FCD_RETCODE_ENUM fcdGetMode(fcdDesc *fcd, FCD_MODE_ENUM *pMode)
 
 
 /** \brief Get FCD firmware version as string.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param str The returned vesion number as a 0 terminated string (must be pre-allocated)
   * \return The current FCD mode.
   * \sa FCD_RETCODE_ENUM
@@ -329,7 +329,7 @@ extern FCD_RETCODE_ENUM fcdGetFwVerStr(fcdDesc *fcd, char *str)
 }
 
 /** \brief Get FCD firmware version as string.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param str The returned vesion number as a 0 terminated string (must be pre-allocated)
   * \param n The maximum number of characters to return in the version string.
   * \return The current FCD mode.
@@ -348,7 +348,7 @@ extern FCD_RETCODE_ENUM fcdGetFwVerStrExt(fcdDesc *fcd, unsigned char *str, int 
 }
 
 /** \brief Reset FCD to application mode.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \return FCD_MODE_NONE
   *
   * This function is used to switch the FCD from bootloader mode
@@ -361,7 +361,7 @@ extern FCD_RETCODE_ENUM fcdBlReset(fcdDesc *fcd)
 }
 
 /** \brief Reset FCD to bootloader mode.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \return FCD_MODE_NONE
   *
   * This function is used to switch the FCD into bootloader mode in which
@@ -374,7 +374,7 @@ extern FCD_RETCODE_ENUM fcdAppReset(fcdDesc *fcd)
 
 
 /** \brief Set FCD frequency with kHz resolution.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param nFreq The new frequency in kHz.
   * \return the return code.
   *
@@ -389,7 +389,7 @@ extern FCD_RETCODE_ENUM fcdAppSetFreqkHz(fcdDesc *fcd, int nFreq)
 }
 
 /** \brief Set FCD frequency with Hz resolution.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param nFreq The new frequency in Hz.
   * \return the return code.
   *
@@ -404,17 +404,17 @@ extern FCD_RETCODE_ENUM fcdAppSetFreq(fcdDesc *fcd, uint32_t nFreq, uint32_t *ac
 }
 
 /** \brief Get FCD frequency with Hz resolution.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param nFreq Pointer to a preallocated loation for storing the current frequency in Hz.
   * \return the return code.
   *
-  * This function obtains the current frequency of the FCD with 1 Hz resolution.  The frequency 
-  * returned includes any necessary frequency correction, and so is not the "true" frequency. 
+  * This function obtains the current frequency of the FCD with 1 Hz resolution.  The frequency
+  * returned includes any necessary frequency correction, and so is not the "true" frequency.
   *
   * \sa fcdAppSetFreqHz
   */
 extern FCD_RETCODE_ENUM fcdAppGetFreq(fcdDesc *fcd, uint32_t *nFreq)
-{  
+{
     if (!nFreq) {
         return FCD_RETCODE_ERROR;
     }
@@ -425,7 +425,7 @@ extern FCD_RETCODE_ENUM fcdAppGetFreq(fcdDesc *fcd, uint32_t *nFreq)
 
 
 /** \brief Write FCD parameter (e.g. gain or filter)
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param u8Cmd The command byte / parameter ID, see FCD_CMD_APP_SET_*
   * \param pu8Data The parameter value to be written
   * \param u8len Length of pu8Data in bytes
@@ -448,7 +448,7 @@ extern FCD_RETCODE_ENUM fcdAppSetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8
 
 
 /** \brief Read FCD parameter (e.g. gain or filter)
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param u8Cmd The command byte / parameter ID, see FCD_CMD_APP_GET_*
   * \param pu8Data TPointer to buffer where the parameter value(s) will be written
   * \param u8len Length of pu8Data in bytes
@@ -470,7 +470,7 @@ extern FCD_RETCODE_ENUM fcdAppGetParam(fcdDesc *fcd, uint8_t u8Cmd, uint8_t *pu8
 }
 
 /** \brief Set default gain and filter parameters
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   */
 
 typedef struct {
@@ -528,7 +528,7 @@ extern FCD_RETCODE_ENUM fcdAppSetParamDefaults(fcdDesc *fcd)
 }
 
 /** \brief Erase firmware from FCD.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \return FCD_RETCODE_OKAY on success.
   *
   * This function deletes the firmware from the FCD. This is required
@@ -549,7 +549,7 @@ extern FCD_RETCODE_ENUM fcdBlErase(fcdDesc *fcd)
 
 
 /** \brief Get start and end byte offsets for firmware from FCD.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param start Pointer to a location to receive the start byte address
   * \param end Pointer to a location to receive the end byte address
   * \return FCD_RETCODE_OKAY on success.
@@ -570,7 +570,7 @@ extern FCD_RETCODE_ENUM fcdBlGetByteAddrRange(fcdDesc *fcd, uint32_t *start, uin
 }
 
 /** \brief Set byte start address for writing firmware to FCD.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param start Byte offset for writing to.
   * \return FCD_RETCODE_OKAY on success.
   *
@@ -586,10 +586,10 @@ extern FCD_RETCODE_ENUM fcdBlSetByteAddr(fcdDesc *fcd, uint32_t start)
   buf[3] = (start >> 24) & 0xff;;
   return fcdSendCommand(fcd, FCD_CMD_BL_SET_BYTE_ADDR, buf, 4, & buf[0], 64);
 };
- 
+
 
 /** \brief Write firmware to FCD.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param pc pointer to firmware buffer
   * \param n length of firmware to write
   * \param start, end: start and end firmware addresses
@@ -610,7 +610,7 @@ extern FCD_RETCODE_ENUM fcdBlWriteFirmware(fcdDesc *fcd, unsigned char *pc, int 
 }
 
 /** \brief Verify firmware in FCD.
-  * \param fcd Pointer to an FCD device descriptor 
+  * \param fcd Pointer to an FCD device descriptor
   * \param pc pointer to firmware buffer
   * \param n length of firmware to verify against.
   * \return FCD_RETCODE_OKAY on success.
@@ -631,7 +631,3 @@ extern FCD_RETCODE_ENUM fcdBlVerifyFirmware(fcdDesc *fcd, unsigned char *pc, int
   }
   return rc;
 }
-
-
-
-

@@ -1,11 +1,11 @@
 /***************************************************************************
  *  This file is part of libfcd
- * 
+ *
  *  Copyright (C) 2010  Howard Long, G6LVB
  *  Copyright (C) 2011  Alexandru Csete, OZ9AEC
  *                      Mario Lorenz, DL5MLO
  *  Copyright (C) 2012-2015  John Brzustowski
- * 
+ *
  *  libfcd is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
@@ -21,7 +21,7 @@
  *
  ***************************************************************************/
 
-/* 
+/*
 
    simple fcd control
 
@@ -136,22 +136,6 @@ main(int argc, char **argv)
           puts("Error: path must be busNum:devNum\n");
           exit(1);
         }
-        /* in this case, we try locking the USB device */
-        char lock_file_name[32];
-        sprintf(lock_file_name, "/var/lock/fcd_%d_%d", busNum, devNum);
-        FILE *fl = fopen(lock_file_name, "w");
-        if (!fl) {
-          puts("Error: could not open usb device lockfile.\n");
-          close(lock_fd);
-          exit(1);
-        }
-        lock_fd = fileno(fl);
-        if (flock(fileno(fl), LOCK_EX | LOCK_NB)) {
-          puts("Error: could not lock usb device.\n");
-          close(lock_fd);
-          exit(1);
-        }
-        atexit(release_lock);
       };
       break;
 
@@ -212,17 +196,34 @@ main(int argc, char **argv)
 	     );
       exit(1);
     }
-
+    if (command != OPT_LIST && lock_fd == 0) {
+      char lock_file_name[32];
+      sprintf(lock_file_name, "/var/lock/fcd_%d_%d_%d", busNum, devNum, enumNum);
+      lock_fd = open(lock_file_name, O_CREAT);
+      if (lock_fd == -1) {
+        puts("Error: could not open usb device lockfile.\n");
+        exit(1);
+      }
+      atexit(release_lock);
+      fflush(stdout);
+      if (flock(lock_fd, LOCK_EX)) {
+        puts("Error: could not lock usb device.\n");
+        exit(1);
+      }
+    }
     switch(command) {
     case OPT_LIST:
       puts("These FCDs found:");
       for (enumNum=0;/**/ ; ++enumNum) {
-	if (FCD_RETCODE_OKAY != fcdOpen(&fcd, enumNum, busNum, devNum, 0)) {
+        int rv = fcdOpen(&fcd, enumNum, busNum, devNum, 0);
+	if (FCD_RETCODE_OKAY != rv) {
+          if (FCD_RETCODE_ABSENT != rv)
+            printf("Got error %d trying to open enumNum:%d, busNum:%d devNum:%d\n", rv, enumNum, busNum, devNum);
 	  break;
 	}
 	printf("Model: %12s; enum: %2d; path: %d:%d\n", fcd.pszModelName, enumNum, fcd.busNum, fcd.devNum);
 	fcdClose(&fcd);
-      }	    
+      }
       exit(0);
       break;
     case OPT_RESET_DEV:
@@ -232,7 +233,7 @@ main(int argc, char **argv)
       }
       if (!quiet) puts("Device has been reset.");
       break;
-      
+
     default:
       break;
     }
@@ -261,7 +262,7 @@ main(int argc, char **argv)
       }
       puts("FCD switched to bootloader mode\n");
       break;
-      
+
     case OPT_GET_VERSION:
       {
         unsigned char fwversion[128];
@@ -370,7 +371,7 @@ main(int argc, char **argv)
         }
 
         sleep(3);  // sleep 3; seems to take this long for device to get re-enumerated.
-        
+
         if (FCD_RETCODE_OKAY != fcdOpen(&fcd, -1, 0, 0, 0x01)) {
           puts("Error: unable to re-open FCD that was switched to bootloader mode.");
           exit(1);
@@ -426,4 +427,3 @@ main(int argc, char **argv)
   fcdClose(&fcd);
   exit(EXIT_SUCCESS);
 }
-
