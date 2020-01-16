@@ -1,13 +1,9 @@
 LIBUSB_INCLUDE_PATH=/usr/include/libusb-1.0
 #GCC_LIB_OPTIONS=-fpic
-#GCC_OPTIONS=-Wall -g -O2 -fpic
-GCC_OPTIONS=-Wall -g3 -fpic
-#GPP_OPTIONS=-Wall -O2  -std=c++0x
-GPP_OPTIONS=-Wall -g3  -std=c++0x
-WINGPP=i686-w64-mingw32-g++
-WINGCC=i686-w64-mingw32-gcc
-WINAR=i686-w64-mingw32-ar
-WINSTRIP=i686-w64-mingw32-strip
+
+GCC_DBG_OPTIONS=-fpic -O -g3 -Wall
+GCC_PROD_OPTIONS=-fpic -O2 -Wall
+GCC_OPTIONS=$(GCC_PROD_OPTIONS)
 
 all:	libfcd.a fcd
 
@@ -19,8 +15,7 @@ fcd: libfcd.a fcd.c Makefile
 	gcc $(GCC_OPTIONS) -o fcd fcd.c -I$(LIBUSB_INCLUDE_PATH) -I. -L. -lfcd -lusb-1.0
 
 install: fcd
-	strip fcd
 	su -c 'cp fcd /usr/bin'
 
 clean:
-	rm -f libfcd.a fcd
+	rm -f libfcd.o libfcd.a fcd
