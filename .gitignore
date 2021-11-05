@@ -2,3 +2,6 @@ fcd
 *.a
 *.o
 *~
+build-temp
+packages
+sensorgnome-dockcross

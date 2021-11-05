@@ -1,0 +1,8 @@
+Package: fcd
+Version: 0.6
+Architecture: armhf
+Essential: no
+Depends: 
+Homepage: https://github.com/sensorgnome/fcd
+Maintainer: TvE (tvoneicken@gmail.com)
+Description: Control program to set options and update firmware on FuneCube Dongles.
